@@ -37,9 +37,20 @@ Steel Horse Framework/
 
 ## Setup
 
+### Option 1 — Unity Package (recommended)
+
+1. Download `SteelHorseFramework-Package.unitypackage`.
+2. In Unity, go to **Assets → Import Package → Custom Package…** and select the downloaded file.
+3. Import all assets, then continue with step 2 below.
+
+### Option 2 — Manual
+
 1. Copy the `Scripts/` and `Prefabs/` folders into your Unity project's `Assets/` directory.
-2. Place the **Game Managers** prefab in your first (bootstrap) scene. It calls `DontDestroyOnLoad` and persists for the entire session, so you only need it in one scene.
-3. Configure the child prefabs (see each section below).
+
+### After importing (both options)
+
+1. Place the **Game Managers** prefab in your first (bootstrap) scene. It calls `DontDestroyOnLoad` and persists for the entire session, so you only need it in one scene.
+2. Configure the child prefabs (see each section below).
 
 ---
 
