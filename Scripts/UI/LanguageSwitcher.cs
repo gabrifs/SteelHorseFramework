@@ -27,13 +27,11 @@ namespace SteelHorse.Framework.UI
 
         private IEnumerator SetupLanguageButtons()
         {
-            // Wait for localization to initialize
+            // LocalizationSettings must finish initializing before locales are queryable.
             yield return LocalizationSettings.InitializationOperation;
 
-            // Load saved language (or use device default)
             LoadSavedLanguage();
 
-            // Setup button click events
             foreach (LanguageButton langBtn in _languageButtons)
             {
                 langBtn.Button.onClick.AddListener(() => ChangeLanguage(langBtn.Locale));
@@ -42,7 +40,6 @@ namespace SteelHorse.Framework.UI
 
         private void LoadSavedLanguage()
         {
-            // Try to find saved locale
             string savedLangCode = PlayerPrefs.GetString(_languagePrefsString, "");
             if (!string.IsNullOrEmpty(savedLangCode))
             {
@@ -54,16 +51,12 @@ namespace SteelHorse.Framework.UI
                 }
             }
 
-            // Use device language OR first available locale
+            // Fall back to the device language, then to the first available locale if
+            // the device language isn't in the project's locale list.
             Locale deviceLocale = LocalizationSettings.AvailableLocales.GetLocale(Application.systemLanguage);
-            if(deviceLocale != null)
-            {
-                LocalizationSettings.SelectedLocale = deviceLocale;
-            }
-            else
-            {
-                LocalizationSettings.SelectedLocale = LocalizationSettings.AvailableLocales.Locales[0];
-            }
+            LocalizationSettings.SelectedLocale = deviceLocale != null
+                ? deviceLocale
+                : LocalizationSettings.AvailableLocales.Locales[0];
         }
 
         private void ChangeLanguage(Locale targetLocale)

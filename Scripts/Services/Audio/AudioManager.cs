@@ -43,6 +43,8 @@ namespace SteelHorse.Framework.Services.Audio
 
         public void StopSfx(SfxHandle handle)
         {
+            // Pattern-match to UnityEngine.Object to trigger Unity's overloaded == null,
+            // which returns true for destroyed MonoBehaviours even when the C# reference is non-null.
             if (handle.Player is Object obj && obj == null)
                 return;
 

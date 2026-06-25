@@ -1,5 +1,8 @@
 namespace SteelHorse.Framework.Services.Audio
 {
+    // Lightweight token returned by ISfxPlayer.Play. The generation counter lets
+    // Stop() verify the handle still refers to the same playback rather than a
+    // voice slot that has since been reused for a different sound.
     public readonly struct SfxHandle
     {
         public ISfxPlayer Player { get { return _player; } }

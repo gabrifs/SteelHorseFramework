@@ -62,6 +62,8 @@ namespace SteelHorse.Framework.Services.Audio
 
         public SfxHandle Play(SfxCue cue, Transform parent = null, Vector3? position = null)
         {
+            // Ring-buffer eviction: unconditionally steal the oldest slot.
+            // Audio pools always prefer lowest-latency play over protecting long-running voices.
             int index = _nextIndex;
             _nextIndex = (_nextIndex + 1) % _pool.Length;
 
@@ -107,6 +109,8 @@ namespace SteelHorse.Framework.Services.Audio
                 sourceTransform.position = parent.position;
         }
 
+        // Only looped sources with a moving parent need per-frame tracking;
+        // one-shots position themselves once at play time and then stay put.
         private void BeginTracking(int index, Transform parent)
         {
             _parents[index] = parent;
@@ -141,6 +145,7 @@ namespace SteelHorse.Framework.Services.Audio
             while (true)
             {
                 PlayClip(cue, source);
+                // Divide by pitch: pitch > 1 speeds playback up, reducing effective duration.
                 yield return new WaitForSeconds(source.clip.length / source.pitch);
             }
         }

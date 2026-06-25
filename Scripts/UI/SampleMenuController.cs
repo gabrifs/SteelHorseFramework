@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace SteelHorse.Framework.UI
 {
-    public class MainMenuController : MonoBehaviour
+    public class SampleMenuController : MonoBehaviour
     {
         [SerializeField] private string _gameSceneName;
 

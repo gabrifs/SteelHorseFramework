@@ -19,6 +19,8 @@ namespace SteelHorse.Framework.Services.Audio
         public SfxHandle Play(SfxCue cue, Transform parent = null, Vector3? position = null)
         {
             StopLoop();
+            // Increment generation so any handle pointing to the previous sound is
+            // treated as stale and rejected by Stop().
             _generation++;
 
             _source.outputAudioMixerGroup = cue.OutputGroup;
@@ -62,6 +64,7 @@ namespace SteelHorse.Framework.Services.Audio
                 _source.volume = cue.GetVolume();
                 _source.clip = cue.GetNextClip();
                 _source.Play();
+                // Divide by pitch: pitch > 1 speeds playback up, reducing effective duration.
                 yield return new WaitForSeconds(_source.clip.length / _source.pitch);
             }
         }
