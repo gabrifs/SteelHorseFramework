@@ -1,22 +1,14 @@
-using System;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 namespace SteelHorse.Framework.UI
 {
     public class MenuNavigator : MonoBehaviour
     {
-        [Serializable]
-        private struct PushEntry
-        {
-            public Button Trigger;
-            public MenuPanel Target;
-        }
-
         // A frame pairs a panel with the focus to restore on the panel below when popped.
         private struct StackFrame
         {
@@ -25,24 +17,12 @@ namespace SteelHorse.Framework.UI
         }
 
         [SerializeField] private MenuPanel _rootPanel;
-        [SerializeField] private List<PushEntry> _pushEntries;
-        [SerializeField] private List<Button> _popButtons;
 
         private readonly Stack<StackFrame> _history = new();
         private InputAction _cancelAction;
 
         private void Awake()
         {
-            foreach (var entry in _pushEntries)
-            {
-                var target = entry.Target;
-                var trigger = entry.Trigger;
-                entry.Trigger.onClick.AddListener(() => Push(target, trigger));
-            }
-
-            foreach (var button in _popButtons)
-                button.onClick.AddListener(Pop);
-
             if (_rootPanel != null)
                 Push(_rootPanel);
         }
@@ -63,17 +43,20 @@ namespace SteelHorse.Framework.UI
             if (_cancelAction != null)
                 _cancelAction.performed -= OnCancelPerformed;
 
-            foreach (var entry in _pushEntries)
-                entry.Trigger.onClick.RemoveAllListeners();
-
-            foreach (var button in _popButtons)
-                button.onClick.RemoveAllListeners();
+            foreach (var frame in _history)
+            {
+                frame.Panel.PopRequested -= Pop;
+                frame.Panel.PushRequested -= Push;
+            }
         }
 
         public void Push(MenuPanel panel, Selectable returnFocusOnPop = null)
         {
             if (_history.TryPeek(out var current))
                 current.Panel.Hide();
+
+            panel.PopRequested += Pop;
+            panel.PushRequested += Push;
 
             _history.Push(new StackFrame { Panel = panel, ReturnFocusOnPop = returnFocusOnPop });
             panel.Show();
@@ -85,17 +68,36 @@ namespace SteelHorse.Framework.UI
                 return;
 
             var top = _history.Pop();
+            top.Panel.PopRequested -= Pop;
+            top.Panel.PushRequested -= Push;
             top.Panel.Hide();
+
             _history.Peek().Panel.Show(top.ReturnFocusOnPop);
         }
 
         public void PopToRoot()
         {
             while (_history.Count > 1)
-                _history.Pop().Panel.Hide();
+            {
+                var frame = _history.Pop();
+                frame.Panel.PopRequested -= Pop;
+                frame.Panel.PushRequested -= Push;
+                frame.Panel.Hide();
+            }
 
             if (_history.TryPeek(out var root))
                 root.Panel.Show();
+        }
+
+        public void Clear()
+        {
+            while (_history.Count > 0)
+            {
+                var frame = _history.Pop();
+                frame.Panel.PopRequested -= Pop;
+                frame.Panel.PushRequested -= Push;
+                frame.Panel.Hide();
+            }
         }
 
         private void OnCancelPerformed(InputAction.CallbackContext ctx)

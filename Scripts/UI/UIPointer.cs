@@ -2,6 +2,7 @@ using System.Collections;
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace SteelHorse.Framework.UI
 {
@@ -45,7 +46,8 @@ namespace SteelHorse.Framework.UI
             if (selected != null)
             {
                 var selectedRect = selected.GetComponent<RectTransform>();
-                if (selectedRect != null)
+                var selectable = selected.GetComponent<Selectable>();
+                if (selectedRect != null && (selectable == null || selectable.IsInteractable()))
                 {
                     if (!_pointer.gameObject.activeSelf)
                         _pointer.gameObject.SetActive(true);
@@ -53,8 +55,8 @@ namespace SteelHorse.Framework.UI
                     if (selectedRect != _currentTarget)
                     {
                         _currentTarget = selectedRect;
-                        _pointer.DOMove(_currentTarget.position, _moveDuration);
-                        _pointer.DOSizeDelta(_currentTarget.rect.size, _moveDuration);
+                        _pointer.DOMove(_currentTarget.position, _moveDuration).SetUpdate(true);
+                        _pointer.DOSizeDelta(_currentTarget.rect.size, _moveDuration).SetUpdate(true);
                     }
 
                     return;

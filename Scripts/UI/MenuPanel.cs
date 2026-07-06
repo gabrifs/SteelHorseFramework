@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Events;
@@ -8,17 +10,51 @@ namespace SteelHorse.Framework.UI
     [RequireComponent(typeof(CanvasGroup))]
     public class MenuPanel : MonoBehaviour
     {
+        [Serializable]
+        private struct PushEntry
+        {
+            public Button Trigger;
+            public MenuPanel Target;
+        }
+
         [SerializeField] private Selectable _defaultFocus;
         [SerializeField] private bool _poppableOnCancel = true;
+        [SerializeField] private List<Button> _popButtons;
+        [SerializeField] private List<PushEntry> _pushEntries;
         [SerializeField] private UnityEvent _onShow;
         [SerializeField] private UnityEvent _onHide;
+
+        public event Action PopRequested;
+        public event Action<MenuPanel, Selectable> PushRequested;
 
         public bool PoppableOnCancel => _poppableOnCancel;
 
         private CanvasGroup _canvasGroup;
         private CanvasGroup Canvas => _canvasGroup != null ? _canvasGroup : (_canvasGroup = GetComponent<CanvasGroup>());
 
-        public void Show(Selectable overrideFocus = null)
+        protected virtual void Awake()
+        {
+            foreach (var btn in _popButtons)
+                btn.onClick.AddListener(() => PopRequested?.Invoke());
+
+            foreach (var entry in _pushEntries)
+            {
+                var target = entry.Target;
+                var trigger = entry.Trigger;
+                trigger.onClick.AddListener(() => PushRequested?.Invoke(target, trigger));
+            }
+        }
+
+        protected virtual void OnDestroy()
+        {
+            foreach (var btn in _popButtons)
+                btn.onClick.RemoveAllListeners();
+
+            foreach (var entry in _pushEntries)
+                entry.Trigger.onClick.RemoveAllListeners();
+        }
+
+        public virtual void Show(Selectable overrideFocus = null)
         {
             Canvas.alpha = 1f;
             Canvas.interactable = true;
@@ -31,7 +67,7 @@ namespace SteelHorse.Framework.UI
             _onShow?.Invoke();
         }
 
-        public void Hide()
+        public virtual void Hide()
         {
             Canvas.alpha = 0f;
             Canvas.interactable = false;
