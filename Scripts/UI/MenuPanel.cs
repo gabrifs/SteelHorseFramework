@@ -54,6 +54,8 @@ namespace SteelHorse.Framework.UI
                 entry.Trigger.onClick.RemoveAllListeners();
         }
 
+        public void Pop() => PopRequested?.Invoke();
+
         public virtual void Show(Selectable overrideFocus = null)
         {
             Canvas.alpha = 1f;

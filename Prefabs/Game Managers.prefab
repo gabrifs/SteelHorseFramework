@@ -60,7 +60,7 @@ Canvas:
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 10
+  m_SortingOrder: 30010
   m_TargetDisplay: 0
 --- !u!114 &4753872976791438968
 MonoBehaviour:
@@ -305,6 +305,64 @@ MonoBehaviour:
   _loadingPanel: {fileID: 7850501176620373047}
   _loadingTextAnimator: {fileID: 805164034929110521}
   _fadeDuration: 0.3
+--- !u!1 &1612612292412993568
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2656123185927096932}
+  - component: {fileID: 2238798910057781517}
+  - component: {fileID: 7138389042202590540}
+  m_Layer: 0
+  m_Name: Api Client
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2656123185927096932
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1612612292412993568}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1118498606182018059}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2238798910057781517
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1612612292412993568}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 740448a54d0c11944b6ac75a51d8bb4e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SteelHorse.Framework.Services.Networking.ApiClient
+  _config: {fileID: 11400000, guid: 5d4720a92e35cb849b54cdfe53e43d08, type: 2}
+--- !u!114 &7138389042202590540
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1612612292412993568}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2c34454bec32e6345b22f34fe546190d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SteelHorse.Pinball.Networking.MatchSubmissionQueueRunner
 --- !u!1 &5172125493533603493
 GameObject:
   m_ObjectHideFlags: 0
@@ -441,6 +499,55 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ac23010e07588db4a82fe187a4724a40, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SteelHorse.Pinball.PlayerSaveInstance
+--- !u!1 &5827361476445244779
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 198833716802919275}
+  - component: {fileID: 7242408940579899041}
+  m_Layer: 0
+  m_Name: MusicPlayer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &198833716802919275
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5827361476445244779}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1118498606182018059}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7242408940579899041
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5827361476445244779}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bffc2e5a4ef3bd4419418dcbd0c4922f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SteelHorse.Framework.Services.Audio.MusicPlayer
+  _mixer: {fileID: 24100000, guid: e6df0c9e3e6c4a945874609d776b2ce2, type: 2}
+  _channelAGroup: {fileID: 3386073986778875536, guid: e6df0c9e3e6c4a945874609d776b2ce2, type: 2}
+  _channelBGroup: {fileID: -947013902562781855, guid: e6df0c9e3e6c4a945874609d776b2ce2, type: 2}
+  _channelAVolumeParameter: MusicCh1Volume
+  _channelBVolumeParameter: MusicCh2Volume
 --- !u!1 &7124996259863381006
 GameObject:
   m_ObjectHideFlags: 0
@@ -684,7 +791,9 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3111659428185371879}
+  - {fileID: 198833716802919275}
   - {fileID: 8467208447829449240}
+  - {fileID: 2656123185927096932}
   m_Father: {fileID: 5718685428048935870}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &2119184225434152345

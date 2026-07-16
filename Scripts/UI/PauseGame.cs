@@ -8,6 +8,9 @@ namespace SteelHorse.Framework.UI
     {
         public static bool IsPaused { get; private set; }
 
+        // Set by game code to prevent pausing while a blocking screen is active
+        public static bool IsPauseBlocked { get; set; }
+
         [SerializeField] private MenuNavigator _navigator;
         [SerializeField] private MenuPanel _pausePanel;
         [SerializeField] private InputActionReference _pauseActionReference;
@@ -60,7 +63,7 @@ namespace SteelHorse.Framework.UI
 
         public void Pause()
         {
-            if (IsPaused) return;
+            if (IsPaused || IsPauseBlocked) return;
             IsPaused = true;
             Time.timeScale = 0f;
             AudioListener.pause = true;
