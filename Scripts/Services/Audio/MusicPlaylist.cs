@@ -10,7 +10,7 @@ namespace SteelHorse.Framework.Services.Audio
         public float FadeOutTime { get { return _fadeOutTime; } }
         public bool HasSongs { get { return _songs != null && _songs.Length > 0; } }
 
-        [SerializeField] private AudioClip[] _songs;
+        [SerializeField] private SoundConfig[] _songs;
         [SerializeField] private PlaylistSequenceMode _sequenceMode = PlaylistSequenceMode.Sequential;
 
         [Tooltip("Seconds before a song ends when the next song should start crossfading in. " +
@@ -19,7 +19,7 @@ namespace SteelHorse.Framework.Services.Audio
 
         private int _lastPlayedIndex = -1;
 
-        public AudioClip GetNextClip()
+        public SoundConfig GetNextSound()
         {
             _lastPlayedIndex = GetNextIndex();
             return _songs[_lastPlayedIndex];

@@ -1,32 +1,30 @@
 using UnityEngine;
+using UnityEngine.UI;
+using SteelHorse.Framework.Services.Audio;
 
 namespace SteelHorse.Framework.UI
 {
-    [RequireComponent(typeof(CanvasGroup))]
-    public class UIButton : MonoBehaviour
+    [RequireComponent(typeof(Button))]
+    public class UIButton : UISelectableBase
     {
-        [SerializeField] private bool _mobileButton = false;
+        [SerializeField] private SfxCue _clickSfxCue;
 
-        private CanvasGroup _canvasGroup;
-        private CanvasGroup Canvas => _canvasGroup != null ? _canvasGroup : (_canvasGroup = GetComponent<CanvasGroup>());
+        private Button _button;
+        private Button Button => _button != null ? _button : (_button = GetComponent<Button>());
 
-        private void Awake()
+        protected override void Awake()
         {
-            if (_mobileButton)
-                SetVisible(IsMobilePlatform());
+            base.Awake();
+            Button.onClick.AddListener(PlayClickSfx);
         }
 
-        private static bool IsMobilePlatform()
+        private void OnDestroy()
         {
-            return Application.platform == RuntimePlatform.Android
-                || Application.platform == RuntimePlatform.IPhonePlayer;
+            Button.onClick.RemoveListener(PlayClickSfx);
         }
 
-        private void SetVisible(bool visible)
-        {
-            Canvas.alpha = visible ? 1f : 0f;
-            Canvas.interactable = visible;
-            Canvas.blocksRaycasts = visible;
-        }
+        // Button.onClick already fires for pointer clicks and gamepad/keyboard Submit,
+        // so routing through it avoids reimplementing IPointerClickHandler/ISubmitHandler.
+        private void PlayClickSfx() => PlaySfx(_clickSfxCue);
     }
 }

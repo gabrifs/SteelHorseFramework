@@ -12,18 +12,24 @@ namespace SteelHorse.Framework.Services.Audio
         public AudioMixerGroup OutputGroup { get { return _outputGroup; } }
         public SfxPlaybackMode PlaybackMode { get { return _playbackMode; } }
         public bool Looped { get { return _looped; } }
+        public SfxSpatialSettings SpatialSettings { get { return _spatialSettings; } }
 
-        [SerializeField] private AudioClip[] _clips;
+        [SerializeField] private SoundConfig[] _clips;
         [SerializeField] private ClipSelectionMode _selectionMode = ClipSelectionMode.Random;
         [SerializeField] private bool _looped;
         [SerializeField] private AudioMixerGroup _outputGroup;
         [SerializeField] private SfxPlaybackMode _playbackMode = SfxPlaybackMode.World3D;
+        [Tooltip("Multiplier applied on top of the picked clip's Base Volume.")]
         [SerializeField] private Vector2 _volumeRange = new Vector2(1f, 1f);
         [SerializeField] private Vector2 _pitchRange = new Vector2(1f, 1f);
 
+        [Header("3D Sound Settings")]
+        [Tooltip("Only applied to World3D cues — ignored for UI2D cues, which are never spatialized.")]
+        [SerializeField] private SfxSpatialSettings _spatialSettings = new SfxSpatialSettings();
+
         private int _lastPlayedIndex = -1;
 
-        public AudioClip GetNextClip()
+        public SoundConfig GetNextSound()
         {
             _lastPlayedIndex = GetNextIndex();
             return _clips[_lastPlayedIndex];
@@ -47,9 +53,9 @@ namespace SteelHorse.Framework.Services.Audio
             return nextIndex;
         }
 
-        public float GetVolume()
+        public float GetVolume(SoundConfig sound)
         {
-            return Random.Range(_volumeRange.x, _volumeRange.y);
+            return Random.Range(_volumeRange.x, _volumeRange.y) * sound.BaseVolume;
         }
 
         public float GetPitch()

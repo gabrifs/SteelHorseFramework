@@ -74,6 +74,7 @@ namespace SteelHorse.Framework.Services.Audio
             PositionSource(index, parent, position);
 
             source.outputAudioMixerGroup = cue.OutputGroup;
+            cue.SpatialSettings.Apply(source);
 
             if (cue.Looped)
             {
@@ -135,8 +136,9 @@ namespace SteelHorse.Framework.Services.Audio
         private void PlayClip(SfxCue cue, AudioSource source)
         {
             source.pitch = cue.GetPitch();
-            source.volume = cue.GetVolume();
-            source.clip = cue.GetNextClip();
+            SoundConfig sound = cue.GetNextSound();
+            source.clip = sound.Clip;
+            source.volume = cue.GetVolume(sound);
             source.Play();
         }
 

@@ -45,7 +45,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6e82fda8e5d65ff44ac15f0d5dbb5d6f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SteelHorse.Audio.AudioManager
-  _audioMixer: {fileID: 24100000, guid: e6df0c9e3e6c4a945874609d776b2ce2, type: 2}
+  _audioMixer: {fileID: 24100000, guid: 341ef68d927e1a847a9fd3ab07d01f42, type: 2}
   _uiSfxPlayer: {fileID: 169025604135204812}
 --- !u!1 &4233145444568892073
 GameObject:

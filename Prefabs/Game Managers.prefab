@@ -57,6 +57,7 @@ Canvas:
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
+  m_UseReflectionProbes: 0
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
@@ -315,7 +316,6 @@ GameObject:
   m_Component:
   - component: {fileID: 2656123185927096932}
   - component: {fileID: 2238798910057781517}
-  - component: {fileID: 7138389042202590540}
   m_Layer: 0
   m_Name: Api Client
   m_TagString: Untagged
@@ -351,18 +351,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SteelHorse.Framework.Services.Networking.ApiClient
   _config: {fileID: 11400000, guid: 5d4720a92e35cb849b54cdfe53e43d08, type: 2}
---- !u!114 &7138389042202590540
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1612612292412993568}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2c34454bec32e6345b22f34fe546190d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SteelHorse.Pinball.Networking.MatchSubmissionQueueRunner
 --- !u!1 &5172125493533603493
 GameObject:
   m_ObjectHideFlags: 0
@@ -395,8 +383,7 @@ Transform:
   m_Children:
   - {fileID: 1118498606182018059}
   - {fileID: 663912210502818685}
-  - {fileID: 6795061608023244070}
-  - {fileID: 8479715083847624344}
+  - {fileID: 5395218502010975051}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &8216760042994130084
@@ -411,94 +398,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 90ca768d1e84cd1408cd9a886971eea4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SteelHorse.Framework.GameManagers
---- !u!1 &5435843668004836445
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 8479715083847624344}
-  - component: {fileID: 5611820946988632694}
-  m_Layer: 0
-  m_Name: Session State
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &8479715083847624344
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5435843668004836445}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 5718685428048935870}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &5611820946988632694
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5435843668004836445}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 69f3f86b37bd95449b9f1901b07d6bf5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SteelHorse.Pinball.SessionService
---- !u!1 &5661460138799779891
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 6795061608023244070}
-  - component: {fileID: 2282721418698305671}
-  m_Layer: 0
-  m_Name: Save Instance
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &6795061608023244070
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5661460138799779891}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 5718685428048935870}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2282721418698305671
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5661460138799779891}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ac23010e07588db4a82fe187a4724a40, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SteelHorse.Pinball.PlayerSaveInstance
 --- !u!1 &5827361476445244779
 GameObject:
   m_ObjectHideFlags: 0
@@ -538,14 +437,14 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5827361476445244779}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bffc2e5a4ef3bd4419418dcbd0c4922f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SteelHorse.Framework.Services.Audio.MusicPlayer
-  _mixer: {fileID: 24100000, guid: e6df0c9e3e6c4a945874609d776b2ce2, type: 2}
-  _channelAGroup: {fileID: 3386073986778875536, guid: e6df0c9e3e6c4a945874609d776b2ce2, type: 2}
-  _channelBGroup: {fileID: -947013902562781855, guid: e6df0c9e3e6c4a945874609d776b2ce2, type: 2}
+  _mixer: {fileID: 24100000, guid: 341ef68d927e1a847a9fd3ab07d01f42, type: 2}
+  _channelAGroup: {fileID: -228925800772355980, guid: 341ef68d927e1a847a9fd3ab07d01f42, type: 2}
+  _channelBGroup: {fileID: -40850484198503510, guid: 341ef68d927e1a847a9fd3ab07d01f42, type: 2}
   _channelAVolumeParameter: MusicCh1Volume
   _channelBVolumeParameter: MusicCh2Volume
 --- !u!1 &7124996259863381006
@@ -690,8 +589,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: LOADING
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: e8849898325451a47bd707aae15db7a1, type: 2}
-  m_sharedMaterial: {fileID: -6378643282899200190, guid: e8849898325451a47bd707aae15db7a1, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -760,6 +659,50 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!1 &7521170872248242259
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5395218502010975051}
+  - component: {fileID: 1584912555169348342}
+  m_Layer: 0
+  m_Name: Framerate Controller
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5395218502010975051
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7521170872248242259}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 5718685428048935870}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1584912555169348342
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7521170872248242259}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bb120cf3a1c7721458832928b88c6218, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SteelHorse.Framework.FrameRateController
 --- !u!1 &7931568919236591185
 GameObject:
   m_ObjectHideFlags: 0

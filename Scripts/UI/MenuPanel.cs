@@ -62,9 +62,19 @@ namespace SteelHorse.Framework.UI
             Canvas.interactable = true;
             Canvas.blocksRaycasts = true;
 
-            var focus = overrideFocus != null ? overrideFocus : _defaultFocus;
-            if (focus != null)
-                EventSystem.current.SetSelectedGameObject(focus.gameObject);
+            // On mobile there's no gamepad/keyboard navigation to seed, and leaving a
+            // button auto-selected would show it highlighted despite nobody touching it.
+            // SelectionGuard also disables itself on mobile so it doesn't restore this.
+            if (PlatformUtility.IsMobilePlatform())
+            {
+                EventSystem.current.SetSelectedGameObject(null);
+            }
+            else
+            {
+                var focus = overrideFocus != null ? overrideFocus : _defaultFocus;
+                if (focus != null)
+                    EventSystem.current.SetSelectedGameObject(focus.gameObject);
+            }
 
             _onShow?.Invoke();
         }

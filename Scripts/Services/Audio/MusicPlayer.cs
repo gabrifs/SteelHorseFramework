@@ -79,18 +79,18 @@ namespace SteelHorse.Framework.Services.Audio
         // cancel a single reference — this method never stops itself.
         private IEnumerator PlaybackSession(MusicPlaylist playlist)
         {
-            AudioClip clip = playlist.GetNextClip();
+            SoundConfig song = playlist.GetNextSound();
 
             if (_isPlaying)
             {
                 // Explicit trigger while something is already playing: crossfade,
                 // using the incoming playlist's own FadeOutTime as the transition length.
-                yield return Crossfade(clip, playlist.FadeOutTime);
+                yield return Crossfade(song, playlist.FadeOutTime);
             }
             else
             {
                 // Nothing currently playing: start immediately, no fade at all.
-                _activeChannel.Play(clip);
+                _activeChannel.Play(song.Clip, song.BaseVolume);
                 _activeChannel.SetVolume(1f);
                 _isPlaying = true;
             }
@@ -100,13 +100,13 @@ namespace SteelHorse.Framework.Services.Audio
                 float fadeOutTime = Mathf.Max(0f, playlist.FadeOutTime);
                 // Never wait a negative amount: if FadeOutTime >= the clip's length,
                 // start the crossfade immediately instead of "before the clip started".
-                float waitTime = Mathf.Max(0f, clip.length - fadeOutTime);
+                float waitTime = Mathf.Max(0f, song.Clip.length - fadeOutTime);
                 yield return new WaitForSeconds(waitTime);
 
                 // Never crossfade for longer than the clip actually has left.
-                float fadeDuration = Mathf.Min(fadeOutTime, clip.length);
-                clip = playlist.GetNextClip();
-                yield return Crossfade(clip, fadeDuration);
+                float fadeDuration = Mathf.Min(fadeOutTime, song.Clip.length);
+                song = playlist.GetNextSound();
+                yield return Crossfade(song, fadeDuration);
             }
         }
 
@@ -136,7 +136,7 @@ namespace SteelHorse.Framework.Services.Audio
         // no special-case detection needed. Shared by both the explicit
         // Play() transition and every auto-advance transition inside
         // PlaybackSession's loop.
-        private IEnumerator Crossfade(AudioClip clip, float duration)
+        private IEnumerator Crossfade(SoundConfig song, float duration)
         {
             duration = Mathf.Max(0f, duration);
 
@@ -144,7 +144,7 @@ namespace SteelHorse.Framework.Services.Audio
             MusicChannel to = _inactiveChannel;
 
             float fromStartVolume = from.GetVolume();
-            to.Play(clip);
+            to.Play(song.Clip, song.BaseVolume);
             to.SetVolume(0f);
 
             float elapsed = 0f;

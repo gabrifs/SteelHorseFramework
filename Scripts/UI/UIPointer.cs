@@ -13,6 +13,9 @@ namespace SteelHorse.Framework.UI
     // applied, so it lines up correctly no matter which canvas (render mode,
     // camera, or CanvasScaler factor) the selected element belongs to.
     // Requires DOTween.
+    //
+    // Disables itself entirely on mobile: this is a gamepad/keyboard-navigation
+    // affordance and there is no EventSystem "selection" concept to follow on touch.
     [RequireComponent(typeof(Canvas))]
     public class UIPointer : MonoBehaviour
     {
@@ -25,6 +28,12 @@ namespace SteelHorse.Framework.UI
 
         private void Awake()
         {
+            if (PlatformUtility.IsMobilePlatform())
+            {
+                gameObject.SetActive(false);
+                return;
+            }
+
             _pointerCanvas = GetComponent<Canvas>();
             _pointerParent = _pointer.parent as RectTransform;
         }

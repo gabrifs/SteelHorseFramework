@@ -14,6 +14,8 @@ namespace SteelHorse.Framework.Services.Audio
             _source = gameObject.AddComponent<AudioSource>();
             _source.playOnAwake = false;
             _source.spatialBlend = 0f;
+            // UI feedback should stay audible through PauseGame's AudioListener.pause.
+            _source.ignoreListenerPause = true;
         }
 
         public SfxHandle Play(SfxCue cue, Transform parent = null, Vector3? position = null)
@@ -32,7 +34,8 @@ namespace SteelHorse.Framework.Services.Audio
             else
             {
                 _source.pitch = cue.GetPitch();
-                _source.PlayOneShot(cue.GetNextClip(), cue.GetVolume());
+                SoundConfig sound = cue.GetNextSound();
+                _source.PlayOneShot(sound.Clip, cue.GetVolume(sound));
             }
 
             return new SfxHandle(this, 0, _generation);
@@ -61,8 +64,9 @@ namespace SteelHorse.Framework.Services.Audio
             while (true)
             {
                 _source.pitch = cue.GetPitch();
-                _source.volume = cue.GetVolume();
-                _source.clip = cue.GetNextClip();
+                SoundConfig sound = cue.GetNextSound();
+                _source.clip = sound.Clip;
+                _source.volume = cue.GetVolume(sound);
                 _source.Play();
                 // Divide by pitch: pitch > 1 speeds playback up, reducing effective duration.
                 yield return new WaitForSeconds(_source.clip.length / _source.pitch);

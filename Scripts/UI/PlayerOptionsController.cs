@@ -28,7 +28,10 @@ namespace SteelHorse.Framework.UI
         [SerializeField] private TMP_Dropdown _qualityDropdown;
         [SerializeField] private string _qualityPrefsKey = "quality_level";
 
-        private void Awake()
+        // Resolved in Start rather than Awake: AudioMixer.SetFloat calls made this
+        // early aren't reliably audible yet (same category of AudioMixer init-order
+        // quirk MusicChannel works around — see its constructor comment).
+        private void Start()
         {
             InitEntry(_masterVolume);
             InitEntry(_sfxVolume);
@@ -58,6 +61,10 @@ namespace SteelHorse.Framework.UI
         {
             ApplyVolume(entry.MixerParameter, linear);
             PlayerPrefs.SetFloat(entry.PrefsKey, linear);
+            // Flushed immediately (not just on OnApplicationQuit) so a change survives
+            // an abnormal exit (crash, task-kill, some mobile suspend paths) instead of
+            // silently reverting to a stale value on next launch.
+            PlayerPrefs.Save();
         }
 
         private void ApplyVolume(string parameter, float linear) =>
@@ -79,6 +86,7 @@ namespace SteelHorse.Framework.UI
         {
             QualitySettings.SetQualityLevel(index, true);
             PlayerPrefs.SetInt(_qualityPrefsKey, index);
+            PlayerPrefs.Save();
         }
     }
 }
