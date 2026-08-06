@@ -53,7 +53,7 @@ namespace SteelHorse.Framework.UI
         public void Push(MenuPanel panel, Selectable returnFocusOnPop = null)
         {
             if (_history.TryPeek(out var current))
-                current.Panel.Hide();
+                current.Panel.Hide(covering: true);
 
             panel.PopRequested += Pop;
             panel.PushRequested += Push;

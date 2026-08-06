@@ -19,6 +19,8 @@ namespace SteelHorse.Framework.UI
 
         [SerializeField] private Selectable _defaultFocus;
         [SerializeField] private bool _poppableOnCancel = true;
+        [Tooltip("Stay visible (but non-interactive) instead of hiding when a new panel is pushed on top of this one. Still hides fully when this panel itself is popped/closed.")]
+        [SerializeField] private bool _alwaysActive;
         [SerializeField] private List<Button> _popButtons;
         [SerializeField] private List<PushEntry> _pushEntries;
         [SerializeField] private UnityEvent _onShow;
@@ -79,9 +81,17 @@ namespace SteelHorse.Framework.UI
             _onShow?.Invoke();
         }
 
-        public virtual void Hide()
+        // `covering` distinguishes being stacked under a new panel (MenuNavigator.Push)
+        // from actually being closed (Pop/PopToRoot/Clear) - only the former respects
+        // AlwaysActive, so a panel set to stay visible while covered still disappears
+        // normally once it's the one being popped.
+        public virtual void Hide(bool covering = false)
         {
-            Canvas.alpha = 0f;
+            bool staysVisible = covering && _alwaysActive;
+
+            if (!staysVisible)
+                Canvas.alpha = 0f;
+
             Canvas.interactable = false;
             Canvas.blocksRaycasts = false;
 

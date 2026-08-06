@@ -408,11 +408,14 @@ You can call `SaveEncryption.Encrypt` / `SaveEncryption.Decrypt` directly if you
 | --- | --- |
 | Default Focus | `Selectable` focused when the panel is shown with no override |
 | Poppable On Cancel | Whether the cancel action (gamepad B / Escape) pops this panel while it's on top of the stack |
+| Always Active | Stays visible (`alpha = 1`) but non-interactive while covered by a new push, instead of hiding — see below |
 | Pop Buttons | Buttons that fire `PopRequested` when clicked |
 | Push Entries | Pairs of `Button Trigger` → `MenuPanel Target` that fire `PushRequested` when the trigger is clicked |
 | On Show / On Hide | `UnityEvent` callbacks for animations or audio |
 
-`Show()` sets `alpha = 1`, enables interaction and raycasts, moves EventSystem focus to the default (or overridden) selectable, and fires `OnShow`. `Hide()` does the opposite and fires `OnHide`. Both are `virtual` so subclasses (e.g. `TabsMenuPanel`) can extend them. Call `Pop()` directly from script (e.g. after a successful form submission) to request a pop without a wired button.
+`Show()` sets `alpha = 1`, enables interaction and raycasts, moves EventSystem focus to the default (or overridden) selectable, and fires `OnShow`. `Hide(bool covering = false)` disables interaction/raycasts and fires `OnHide`; it also zeroes `alpha` unless the panel is both **Always Active** and being hidden because a new panel was pushed on top of it (`covering: true` — that's what `MenuNavigator.Push` passes for the panel it's covering). Popping a panel always calls `Hide()` with `covering` left `false`, so an **Always Active** panel still disappears normally once it's the one being closed, rather than staying stuck on screen. Both `Show`/`Hide` are `virtual` so subclasses (e.g. `TabsMenuPanel`) can extend them. Call `Pop()` directly from script (e.g. after a successful form submission) to request a pop without a wired button.
+
+Use **Always Active** for a panel meant to stay visible as a backdrop while things stack on top of it (e.g. a main menu behind a Settings overlay) — interaction is always disabled while covered, so clicks/navigation still go to whichever panel is actually on top.
 
 On mobile (`PlatformUtility.IsMobilePlatform()`), `Show()` clears the EventSystem selection instead of setting focus — there's no gamepad/keyboard navigation on touch, and leaving a button auto-selected would show it highlighted despite nobody touching it. `SelectionGuard` disables itself on mobile for the same reason, so it doesn't restore the selection `Show()` just cleared.
 
