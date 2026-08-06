@@ -8,13 +8,18 @@ A Unity toolbox providing a lightweight service-locator architecture, pooled aud
 
 ```text
 Steel Horse Framework/
-├── Prefabs/
-│   ├── Game Managers.prefab       ← Drop this into every scene
-│   └── Services/
-│       ├── AudioManager.prefab    ← Nested under Game Managers/Services
-│       └── MusicPlayer.prefab     ← Nested under Game Managers/Services
+├── Assets/
+│   ├── GameMixer.mixer                            ← Shared AudioMixer (Master/SFX/Music/...)
+│   ├── Prefabs/
+│   │   ├── Standard Game Managers.prefab          ← Drop this into every scene
+│   │   └── Services/
+│   │       └── AudioManager.prefab                ← Nested under Standard Game Managers/Services
+│   └── ScriptableObjects/
+│       └── Resolution Options.asset               ← Sample ResolutionOptions asset
 └── Scripts/
+    ├── FrameRateController.cs
     ├── GameManagers.cs
+    ├── PlatformUtility.cs
     ├── Editor/
     │   └── OpenPersistendData.cs
     └── Services/
@@ -27,10 +32,13 @@ Steel Horse Framework/
         │   ├── UiSfxPlayer.cs
         │   ├── SfxCue.cs
         │   ├── SfxHandle.cs
+        │   ├── SfxSpatialSettings.cs
+        │   ├── SoundConfig.cs
         │   ├── IMusicPlayer.cs
         │   ├── MusicPlayer.cs
         │   ├── MusicChannel.cs
-        │   └── MusicPlaylist.cs
+        │   ├── MusicPlaylist.cs
+        │   └── PlaylistAutoStarter.cs
         ├── Networking/
         │   ├── IApiClient.cs
         │   ├── ApiClient.cs
@@ -44,17 +52,23 @@ Steel Horse Framework/
         │   ├── SceneLoader.cs
         │   └── LoadingTextAnimator.cs
         └── UI/
+            ├── DisplayOnPlatform.cs
             ├── LanguageSwitcher.cs
             ├── MenuNavigator.cs
             ├── MenuPanel.cs
             ├── PauseGame.cs
             ├── PlayerOptionsController.cs
+            ├── ResolutionOptions.cs
+            ├── ResolutionSetting.cs
             ├── SampleMenuController.cs
             ├── SelectionGuard.cs
             ├── SystemCursorLocker.cs
             ├── TabsMenuPanel.cs
             ├── UIButton.cs
+            ├── UIDropdown.cs
             ├── UIPointer.cs
+            ├── UISelectableBase.cs
+            ├── UISlider.cs
             └── VersionLabel.cs
 ```
 
@@ -62,8 +76,8 @@ Steel Horse Framework/
 
 ## Setup
 
-1. Copy the `Scripts/` and `Prefabs/` folders into your Unity project's `Assets/` directory.
-2. Place the **Game Managers** prefab in your first (bootstrap) scene. It calls `DontDestroyOnLoad` and persists for the entire session, so you only need it in one scene.
+1. Copy the `Scripts/` and `Assets/` folders into your Unity project's `Assets/` directory.
+2. Place the **Standard Game Managers** prefab in your first (bootstrap) scene. It calls `DontDestroyOnLoad` and persists for the entire session, so you only need it in one scene.
 3. Configure the child prefabs (see each section below).
 
 ---
@@ -85,16 +99,37 @@ GameManagers.Instance.Services.ApiClientService.GetAsync("/api/v1/status");
 The prefab hierarchy is:
 
 ```text
-Game Managers  (GameManagers)
-├── UI Canvas          (loading-screen visuals)
-└── Services           (ServiceLocator)
-    ├── AudioManager    (AudioManager + UiSfxPlayer)
+Standard Game Managers  (GameManagers)
+├── UI Canvas             (loading-screen visuals)
+├── Framerate Controller  (FrameRateController)
+└── Services              (ServiceLocator)
+    ├── AudioManager    (nested prefab: Assets/Prefabs/Services/AudioManager.prefab — AudioManager + UiSfxPlayer)
     ├── MusicPlayer     (MusicPlayer)
     ├── SceneLoader     (SceneLoader)
     └── Api Client      (ApiClient)
 ```
 
-Game-specific singletons (e.g. a session or save-data service) should **not** be added to this prefab's own scripts — instead attach them as sibling `MonoBehaviour`s on the `Game Managers` root GameObject. They inherit `DontDestroyOnLoad` from the root and manage their own `Instance` references, without coupling the Framework to game code.
+Game-specific singletons (e.g. a session or save-data service) should **not** be added to this prefab's own scripts — instead attach them as sibling `MonoBehaviour`s on the `Standard Game Managers` root GameObject. They inherit `DontDestroyOnLoad` from the root and manage their own `Instance` references, without coupling the Framework to game code.
+
+---
+
+## FrameRateController
+
+`Scripts/FrameRateController.cs`
+
+Drop as a sibling `MonoBehaviour` on the `Standard Game Managers` prefab root (already wired on the shipped prefab). On mobile (`PlatformUtility.IsMobilePlatform()`), sets `Application.targetFrameRate` to the device's actual refresh rate (`Screen.currentResolution.refreshRateRatio.value`) in `Awake`. Does nothing on desktop.
+
+This exists because `QualitySettings.vSyncCount` is ignored on Android/iOS — the OS controls presentation timing there, not Unity — so without an explicit target frame rate, mobile builds render uncapped and unevenly (reads as stutter/lag) no matter what Quality Settings' vSync toggle says. Desktop already vsyncs correctly via `QualitySettings.vSyncCount`, so it's left alone here.
+
+---
+
+## PlatformUtility
+
+`Scripts/PlatformUtility.cs`
+
+Static helper with a single method, `IsMobilePlatform()` (true on `RuntimePlatform.Android`/`IPhonePlayer`). Shared by everything in the Framework that behaves differently on touch devices: `DisplayOnPlatform` (hides GameObjects per platform), `UIPointer` and `SystemCursorLocker` (both disable themselves on mobile — see below).
+
+Reads `UnityEngine.Device.Application.platform`, not plain `UnityEngine.Application.platform` — the Device Simulator package only overrides the `UnityEngine.Device` variant, so testing mobile-only behavior via the Simulator window requires going through this API. Code that reads `Application.platform` directly always reports the real Editor platform and never appears mobile in the Simulator.
 
 ---
 
@@ -108,6 +143,12 @@ Resolves `IAudioManager`, `IMusicPlayer`, `ISceneLoader`, and `IApiClient` from 
 
 ## Audio System
 
+### SoundConfig
+
+`Scripts/Services/Audio/SoundConfig.cs`
+
+Plain serializable class (not a `ScriptableObject`) pairing one `AudioClip` with the **Base Volume** it should play back at. Used as the element type of `SfxCue.Clips` and `MusicPlaylist.Songs` so each clip in a cue/playlist can have its own baseline loudness instead of sharing one fixed volume.
+
 ### SfxCue (ScriptableObject)
 
 `Scripts/Services/Audio/SfxCue.cs`
@@ -116,13 +157,30 @@ Create via **Assets → Create → Steel Horse → Audio → SFX Cue**.
 
 | Field | Description |
 | --- | --- |
-| Clips | One or more `AudioClip` assets |
+| Clips | One or more `SoundConfig` entries (`AudioClip` + Base Volume) |
 | Selection Mode | `Random` (no immediate repeat) or `Ordered` (sequential) |
 | Looped | Loops the cue until explicitly stopped |
 | Output Group | Target `AudioMixerGroup` |
 | Playback Mode | `World3D` (spatialised) or `UI2D` (non-spatialised) |
-| Volume Range | Random volume between min/max |
+| Volume Range | Random multiplier (min/max) applied on top of the picked clip's Base Volume — final volume is `Random.Range(min, max) * clip.BaseVolume` |
 | Pitch Range | Random pitch between min/max |
+| 3D Sound Settings | A `SfxSpatialSettings` block (Min/Max Distance, Rolloff Mode, Custom Rolloff Curve, Spread, Doppler Level) — see below. Ignored for `UI2D` cues. |
+
+### SfxSpatialSettings
+
+`Scripts/Services/Audio/SfxSpatialSettings.cs`
+
+Plain serializable class (not a `ScriptableObject`) mirroring `AudioSource`'s built-in "3D Sound Settings" inspector group, so each `World3D` `SfxCue` can control its own falloff instead of every pooled voice sharing one fixed configuration.
+
+| Field | Description |
+| --- | --- |
+| Min/Max Distance | `AudioSource.minDistance`/`maxDistance` |
+| Rolloff Mode | `Logarithmic`, `Linear`, or `Custom` |
+| Custom Rolloff Curve | Used only when Rolloff Mode is `Custom` — applied via `AudioSource.SetCustomCurve` |
+| Spread | `AudioSource.spread` (0–360) |
+| Doppler Level | `AudioSource.dopplerLevel` (0–5) |
+
+`Apply(AudioSource)` writes all of the above onto a source; `PooledSfxPlayer.Play()` calls it on every play so a shared pooled voice always matches whichever cue is currently using it.
 
 ### Playing and Stopping SFX
 
@@ -172,7 +230,7 @@ Create via **Assets → Create → Steel Horse → Audio → Music Playlist**.
 
 | Field | Description |
 | --- | --- |
-| Songs | One or more `AudioClip` assets |
+| Songs | One or more `SoundConfig` entries (`AudioClip` + Base Volume) |
 | Sequence Mode | `Sequential` (cycles in array order) or `Random` (no immediate repeat) |
 | Fade Out Time | Seconds before a song ends when the next song starts crossfading in; also the crossfade duration used when this playlist is explicitly triggered |
 
@@ -182,7 +240,10 @@ Create via **Assets → Create → Steel Horse → Audio → Music Playlist**.
 
 Built into the **MusicPlayer** prefab (sibling of **AudioManager** under `Services`). Owns two `MusicChannel`s, each routed to one of the game's `AudioMixer`'s two `Music` sub-groups. Only one channel plays at a time; triggering a new playlist starts the new song on the opposite channel and crossfades between them. Auto-advances within the active playlist using the same crossfade, timed off that playlist's `Fade Out Time`.
 
-Channel volume is driven entirely through the mixer's exposed per-channel parameters (not `AudioSource.volume`), so all audible-level control — the overall music slider and the per-channel crossfade alike — lives in the mixer graph, the same way `PlayerOptionsController` already drives `MasterVolume`/`MusicVolume`/`SfxVolume`.
+Two independent volume knobs multiply together for the final audible level:
+
+- **Mixer fader** (`AudioMixer.SetFloat` on the channel's exposed parameter) — drives the crossfade transition (0→1→0) and, through the mixer graph, the overall `MusicVolume`/`MasterVolume` sliders the same way `PlayerOptionsController` already drives them.
+- **`AudioSource.volume`** — set directly from the playing song's `SoundConfig.BaseVolume` (never touches the mixer), so a quieter song stays quieter rather than being compensated back up by the mixer graph.
 
 **Inspector wiring required:**
 
@@ -207,6 +268,12 @@ GameManagers.Instance.Services.MusicPlayerService.Stop();
 ```
 
 Overall music volume is controlled independently via the mixer's exposed `MusicVolume` parameter (see `PlayerOptionsController`) — both `Music Ch1` and `Music Ch2` inherit it as children of `Music`, so no additional volume wiring is needed there.
+
+### PlaylistAutoStarter
+
+`Scripts/Services/Audio/PlaylistAutoStarter.cs`
+
+Drop on any GameObject in a scene to start a `MusicPlaylist` playing as soon as the scene loads, with no other script required. Assign the **Playlist** field; on `Start` it calls `GameManagers.Instance.Services.MusicPlayerService.Play(playlist)`. Useful for scenes (e.g. a main menu) that just need their music playing unconditionally, without a scene-specific controller.
 
 ---
 
@@ -254,7 +321,7 @@ A minimal, dependency-free REST client built on `UnityWebRequest` and Unity's `A
 
 `Scripts/Services/Networking/ApiConfig.cs`
 
-Create via **Assets → Create → Steel Horse → Networking → Api Config**. Holds a single `BaseUrl` string that every request is resolved against. Assign it on the **Api Client** component in the `Game Managers` prefab.
+Create via **Assets → Create → Steel Horse → Networking → Api Config**. Holds a single `BaseUrl` string that every request is resolved against. Assign it on the **Api Client** component in the `Standard Game Managers` prefab.
 
 ### ApiClient / IApiClient
 
@@ -341,11 +408,16 @@ You can call `SaveEncryption.Encrypt` / `SaveEncryption.Decrypt` directly if you
 | --- | --- |
 | Default Focus | `Selectable` focused when the panel is shown with no override |
 | Poppable On Cancel | Whether the cancel action (gamepad B / Escape) pops this panel while it's on top of the stack |
+| Always Active | Stays visible (`alpha = 1`) but non-interactive while covered by a new push, instead of hiding — see below |
 | Pop Buttons | Buttons that fire `PopRequested` when clicked |
 | Push Entries | Pairs of `Button Trigger` → `MenuPanel Target` that fire `PushRequested` when the trigger is clicked |
 | On Show / On Hide | `UnityEvent` callbacks for animations or audio |
 
-`Show()` sets `alpha = 1`, enables interaction and raycasts, moves EventSystem focus to the default (or overridden) selectable, and fires `OnShow`. `Hide()` does the opposite and fires `OnHide`. Both are `virtual` so subclasses (e.g. `TabsMenuPanel`) can extend them. Call `Pop()` directly from script (e.g. after a successful form submission) to request a pop without a wired button.
+`Show()` sets `alpha = 1`, enables interaction and raycasts, moves EventSystem focus to the default (or overridden) selectable, and fires `OnShow`. `Hide(bool covering = false)` disables interaction/raycasts and fires `OnHide`; it also zeroes `alpha` unless the panel is both **Always Active** and being hidden because a new panel was pushed on top of it (`covering: true` — that's what `MenuNavigator.Push` passes for the panel it's covering). Popping a panel always calls `Hide()` with `covering` left `false`, so an **Always Active** panel still disappears normally once it's the one being closed, rather than staying stuck on screen. Both `Show`/`Hide` are `virtual` so subclasses (e.g. `TabsMenuPanel`) can extend them. Call `Pop()` directly from script (e.g. after a successful form submission) to request a pop without a wired button.
+
+Use **Always Active** for a panel meant to stay visible as a backdrop while things stack on top of it (e.g. a main menu behind a Settings overlay) — interaction is always disabled while covered, so clicks/navigation still go to whichever panel is actually on top.
+
+On mobile (`PlatformUtility.IsMobilePlatform()`), `Show()` clears the EventSystem selection instead of setting focus — there's no gamepad/keyboard navigation on touch, and leaving a button auto-selected would show it highlighted despite nobody touching it. `SelectionGuard` disables itself on mobile for the same reason, so it doesn't restore the selection `Show()` just cleared.
 
 ### MenuNavigator
 
@@ -408,20 +480,71 @@ PauseGame.IsPauseBlocked = true;
 
 `Scripts/UI/PlayerOptionsController.cs`
 
-Wires a settings screen's Master/SFX/Music volume sliders to an `AudioMixer` (via exposed float parameters, linear-to-decibel converted) and a quality-level dropdown to `QualitySettings`. Both are persisted to `PlayerPrefs` and restored on `Awake`.
+Wires a settings screen's Master/SFX/Music volume sliders to an `AudioMixer` (via exposed float parameters, linear-to-decibel converted), a quality-level dropdown to `QualitySettings`, and a resolution dropdown to `Screen.SetResolution`. All three are persisted to `PlayerPrefs` and restored/applied in `Start` (not `Awake` — `AudioMixer.SetFloat` calls made that early aren't reliably audible yet). Each group is independently optional: leaving a field unwired (e.g. no quality dropdown, no resolution dropdown) just skips that `Init*` call instead of erroring, so a game can opt out of any individual control.
 
 | Inspector Field | Description |
 | --- | --- |
 | Mixer | Target `AudioMixer` |
 | Master/SFX/Music Volume | Each: a `Slider`, the mixer's exposed parameter name, and a `PlayerPrefs` key |
 | Quality Dropdown | `TMP_Dropdown` populated from `QualitySettings.names` |
-| Quality Prefs Key | `PlayerPrefs` key for the saved quality index (default `"quality_level"`) |
+| Quality Prefs Key | `PlayerPrefs` key for the saved quality index (default `"QualityLevel"`) |
+| Resolution Dropdown | `TMP_Dropdown` populated from `Resolution Options` |
+| Resolution Options | `ResolutionOptions` asset — the curated list of selectable resolutions |
+| Resolution Prefs Key | `PlayerPrefs` key for the saved resolution index (default `"ResolutionIndex"`) |
+
+**Resolution behavior:** the dropdown's options come from the assigned `ResolutionOptions` asset, plus the player's current monitor resolution (`Screen.currentResolution`) appended automatically if it isn't already one of the curated entries — so the player can always run at their native resolution. On first run (nothing saved to `PlayerPrefs` yet), that monitor resolution is adopted as the default and immediately persisted, rather than falling back to whatever the first curated entry happens to be.
+
+Unity has no built-in event for resolution changes, so `PlayerOptionsController` exposes a static one that anything can subscribe to instead of polling `Screen.width`/`Screen.height`:
+
+```csharp
+private void OnEnable() => PlayerOptionsController.ResolutionChanged += OnResolutionChanged;
+private void OnDisable() => PlayerOptionsController.ResolutionChanged -= OnResolutionChanged;
+
+private void OnResolutionChanged(int width, int height) { /* ... */ }
+```
+
+It fires once during `PlayerOptionsController`'s own setup (restoring a saved resolution, or adopting the monitor's native one on first run) — that call doubles as the initial value, so subscribers don't need a separate first-sync path.
+
+### ResolutionOptions / ResolutionSetting
+
+`Scripts/UI/ResolutionOptions.cs`, `Scripts/UI/ResolutionSetting.cs`
+
+`ResolutionOptions` is a `ScriptableObject` (create via **Assets → Create → Steel Horse → UI → Resolution Options**) holding an array of `ResolutionSetting` entries — each just a `Vector2` resolution plus an inspector-only display name for recognizing entries while editing the asset (the dropdown shown to players is built from the resolution values, not this name). Assign one to `PlayerOptionsController`'s **Resolution Options** field to drive its resolution dropdown.
+
+### UISelectableBase
+
+`Scripts/UI/UISelectableBase.cs`
+
+`[RequireComponent(typeof(Selectable))]`. Abstract base class shared by `UIButton`, `UISlider`, and `UIDropdown`. Not used directly — implements the plumbing common to every Selectable-derived widget:
+
+- **Select Sfx Cue** — plays through `IAudioManager.PlaySfx` on `ISelectHandler.OnSelect`, which fires for both pointer hover-to-select and gamepad/keyboard navigation. Leave empty to skip.
+- **Mouse hover-to-select** — `IPointerEnterHandler.OnPointerEnter` moves EventSystem selection to the hovered widget (if interactable), so mouse hover drives the same highlight/select path as gamepad/keyboard navigation instead of only clicking. Skipped on mobile (`PlatformUtility.IsMobilePlatform()`) — touch fires `PointerEnter` alongside the tap itself, which would re-enable the auto-highlight look that `MenuPanel.Show()` and `SelectionGuard` deliberately clear on touch.
+
+Subclasses call the protected `PlaySfx(SfxCue)` helper (a no-op if the cue is null) to play their own control-specific interaction cue. For platform-conditional visibility, add `DisplayOnPlatform` alongside it instead — it isn't part of this class.
+
+### DisplayOnPlatform
+
+`Scripts/UI/DisplayOnPlatform.cs`
+
+Hides its `GameObject` (via `SetActive`) on platforms disabled in the Inspector. Two independent bools, **Desktop** and **Mobile** (both default `true`), checked against `PlatformUtility.IsMobilePlatform()` in `Awake`. Works on any `GameObject` — a single `Selectable` widget, a whole panel, a group of prompts — not just widgets derived from `UISelectableBase`. Use it for desktop/gamepad-only prompts, touch-only controls, or any element that shouldn't appear on one platform family.
 
 ### UIButton
 
 `Scripts/UI/UIButton.cs`
 
-`[RequireComponent(typeof(CanvasGroup))]`. Set **Mobile Button** to hide (alpha/interactable/raycasts) a button on non-mobile platforms — useful for touch-only controls that shouldn't appear on desktop.
+`: UISelectableBase`, `[RequireComponent(typeof(Button))]`. Adds **Click Sfx Cue**, played on the `Button`'s `onClick` — which fires for both pointer clicks and gamepad/keyboard Submit, so no separate handling is needed for either input method.
+
+### UISlider
+
+`Scripts/UI/UISlider.cs`
+
+`: UISelectableBase`, `[RequireComponent(typeof(Slider))]`. Adds **Value Changed Sfx Cue**, played on every `Slider.onValueChanged` — including continuous drag updates, so a cue with a short/subtle clip is recommended to avoid audio spam while dragging.
+
+### UIDropdown
+
+`Scripts/UI/UIDropdown.cs`
+
+`: UISelectableBase`, `[RequireComponent(typeof(TMP_Dropdown))]`. Adds **Value Changed Sfx Cue**, played on `TMP_Dropdown.onValueChanged` (fires once per option selected).
 
 ### VersionLabel
 
@@ -445,19 +568,19 @@ Minimal example controller for a main-menu scene. Wire up a Play button (loads a
 
 `Scripts/UI/SelectionGuard.cs`
 
-Drop on any GameObject that stays active throughout the menu lifetime. Every `Update` it checks whether the EventSystem has lost its selection (e.g. after a button is clicked or a panel is hidden) and restores it to the last valid selectable. This keeps gamepad and keyboard navigation working without extra wiring.
+Drop on any GameObject that stays active throughout the menu lifetime. Every `Update` it checks whether the EventSystem has lost its selection (e.g. after a button is clicked or a panel is hidden) and restores it to the last valid selectable. This keeps gamepad and keyboard navigation working without extra wiring. Disables itself on mobile (`PlatformUtility.IsMobilePlatform()`) — `MenuPanel.Show()` deliberately clears selection there, and this component would otherwise restore it on the very next frame.
 
 ### SystemCursorLocker
 
 `Scripts/UI/SystemCursorLocker.cs`
 
-Drop on a root GameObject in any scene that should hide and lock the OS cursor. Re-locks on application focus restore so the cursor does not stay unlocked after alt-tab.
+Drop on a root GameObject in any scene that should hide and lock the OS cursor. Re-locks on application focus restore so the cursor does not stay unlocked after alt-tab. Does nothing on mobile (`PlatformUtility.IsMobilePlatform()`) — there's no OS cursor to lock there, and skipping it keeps testing in the Editor's Device Simulator unaffected.
 
 ### UIPointer
 
 `Scripts/UI/UIPointer.cs`
 
-Animates a `RectTransform` "cursor" sprite that smoothly follows the currently selected UI element using **DOTween**. Automatically hides when nothing is selected. Lives on its own `Canvas` and re-projects the selected element's rect through screen space, so it lines up correctly regardless of which canvas (render mode, camera, or `CanvasScaler` factor) the selected element belongs to.
+Animates a `RectTransform` "cursor" sprite that smoothly follows the currently selected UI element using **DOTween**. Automatically hides when nothing is selected. Lives on its own `Canvas` and re-projects the selected element's rect through screen space, so it lines up correctly regardless of which canvas (render mode, camera, or `CanvasScaler` factor) the selected element belongs to. Disables its whole GameObject on mobile (`PlatformUtility.IsMobilePlatform()`) — this is a gamepad/keyboard-navigation affordance with no touch equivalent.
 
 | Inspector Field | Description |
 | --- | --- |
@@ -511,7 +634,7 @@ Adds **Tools → Steel Horse → Open Persistent Data Path** to the Unity menu b
 
 | Namespace | Contents |
 | --- | --- |
-| `SteelHorse.Framework` | `GameManagers` |
+| `SteelHorse.Framework` | `GameManagers`, `PlatformUtility` |
 | `SteelHorse.Framework.Services` | `ServiceLocator` |
 | `SteelHorse.Framework.Services.Audio` | All audio classes |
 | `SteelHorse.Framework.Services.Networking` | `ApiClient`, `IApiClient`, `ApiConfig`, `ApiResponse` |

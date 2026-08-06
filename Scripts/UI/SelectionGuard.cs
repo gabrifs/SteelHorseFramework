@@ -7,9 +7,19 @@ namespace SteelHorse.Framework.UI
     // Prevents the EventSystem from silently losing its selection, which would break
     // gamepad and keyboard UI navigation. Drop on any GameObject that stays active
     // throughout the menu lifetime.
+    //
+    // Disables itself on mobile: there's no gamepad/keyboard navigation to protect there,
+    // and MenuPanel.Show() deliberately clears selection on mobile — restoring it here
+    // would undo that.
     public class SelectionGuard : MonoBehaviour
     {
         private GameObject _lastSelected;
+
+        private void Awake()
+        {
+            if (PlatformUtility.IsMobilePlatform())
+                enabled = false;
+        }
 
         private void Update()
         {

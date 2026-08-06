@@ -19,6 +19,8 @@ namespace SteelHorse.Framework.UI
 
         [SerializeField] private Selectable _defaultFocus;
         [SerializeField] private bool _poppableOnCancel = true;
+        [Tooltip("Stay visible (but non-interactive) instead of hiding when a new panel is pushed on top of this one. Still hides fully when this panel itself is popped/closed.")]
+        [SerializeField] private bool _alwaysActive;
         [SerializeField] private List<Button> _popButtons;
         [SerializeField] private List<PushEntry> _pushEntries;
         [SerializeField] private UnityEvent _onShow;
@@ -62,16 +64,34 @@ namespace SteelHorse.Framework.UI
             Canvas.interactable = true;
             Canvas.blocksRaycasts = true;
 
-            var focus = overrideFocus != null ? overrideFocus : _defaultFocus;
-            if (focus != null)
-                EventSystem.current.SetSelectedGameObject(focus.gameObject);
+            // On mobile there's no gamepad/keyboard navigation to seed, and leaving a
+            // button auto-selected would show it highlighted despite nobody touching it.
+            // SelectionGuard also disables itself on mobile so it doesn't restore this.
+            if (PlatformUtility.IsMobilePlatform())
+            {
+                EventSystem.current.SetSelectedGameObject(null);
+            }
+            else
+            {
+                var focus = overrideFocus != null ? overrideFocus : _defaultFocus;
+                if (focus != null)
+                    EventSystem.current.SetSelectedGameObject(focus.gameObject);
+            }
 
             _onShow?.Invoke();
         }
 
-        public virtual void Hide()
+        // `covering` distinguishes being stacked under a new panel (MenuNavigator.Push)
+        // from actually being closed (Pop/PopToRoot/Clear) - only the former respects
+        // AlwaysActive, so a panel set to stay visible while covered still disappears
+        // normally once it's the one being popped.
+        public virtual void Hide(bool covering = false)
         {
-            Canvas.alpha = 0f;
+            bool staysVisible = covering && _alwaysActive;
+
+            if (!staysVisible)
+                Canvas.alpha = 0f;
+
             Canvas.interactable = false;
             Canvas.blocksRaycasts = false;
 

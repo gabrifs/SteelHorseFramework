@@ -33,7 +33,7 @@ namespace SteelHorse.Framework.Services.Audio
             switch (cue.PlaybackMode)
             {
                 case SfxPlaybackMode.World3D:
-                    _worldSfxPlayer ??= FindFirstObjectByType<PooledSfxPlayer>();
+                    _worldSfxPlayer ??= FindAnyObjectByType<PooledSfxPlayer>();
                     return (_worldSfxPlayer ?? _uiSfxPlayer).Play(cue, parent, position);
 
                 default:
