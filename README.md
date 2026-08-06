@@ -8,11 +8,14 @@ A Unity toolbox providing a lightweight service-locator architecture, pooled aud
 
 ```text
 Steel Horse Framework/
-├── Prefabs/
-│   ├── Game Managers.prefab       ← Drop this into every scene
-│   └── Services/
-│       ├── AudioManager.prefab    ← Nested under Game Managers/Services
-│       └── MusicPlayer.prefab     ← Nested under Game Managers/Services
+├── Assets/
+│   ├── GameMixer.mixer                            ← Shared AudioMixer (Master/SFX/Music/...)
+│   ├── Prefabs/
+│   │   ├── Standard Game Managers.prefab          ← Drop this into every scene
+│   │   └── Services/
+│   │       └── AudioManager.prefab                ← Nested under Standard Game Managers/Services
+│   └── ScriptableObjects/
+│       └── Resolution Options.asset               ← Sample ResolutionOptions asset
 └── Scripts/
     ├── FrameRateController.cs
     ├── GameManagers.cs
@@ -34,7 +37,8 @@ Steel Horse Framework/
         │   ├── IMusicPlayer.cs
         │   ├── MusicPlayer.cs
         │   ├── MusicChannel.cs
-        │   └── MusicPlaylist.cs
+        │   ├── MusicPlaylist.cs
+        │   └── PlaylistAutoStarter.cs
         ├── Networking/
         │   ├── IApiClient.cs
         │   ├── ApiClient.cs
@@ -54,6 +58,8 @@ Steel Horse Framework/
             ├── MenuPanel.cs
             ├── PauseGame.cs
             ├── PlayerOptionsController.cs
+            ├── ResolutionOptions.cs
+            ├── ResolutionSetting.cs
             ├── SampleMenuController.cs
             ├── SelectionGuard.cs
             ├── SystemCursorLocker.cs
@@ -70,8 +76,8 @@ Steel Horse Framework/
 
 ## Setup
 
-1. Copy the `Scripts/` and `Prefabs/` folders into your Unity project's `Assets/` directory.
-2. Place the **Game Managers** prefab in your first (bootstrap) scene. It calls `DontDestroyOnLoad` and persists for the entire session, so you only need it in one scene.
+1. Copy the `Scripts/` and `Assets/` folders into your Unity project's `Assets/` directory.
+2. Place the **Standard Game Managers** prefab in your first (bootstrap) scene. It calls `DontDestroyOnLoad` and persists for the entire session, so you only need it in one scene.
 3. Configure the child prefabs (see each section below).
 
 ---
@@ -93,16 +99,17 @@ GameManagers.Instance.Services.ApiClientService.GetAsync("/api/v1/status");
 The prefab hierarchy is:
 
 ```text
-Game Managers  (GameManagers)
-├── UI Canvas          (loading-screen visuals)
-└── Services           (ServiceLocator)
-    ├── AudioManager    (AudioManager + UiSfxPlayer)
+Standard Game Managers  (GameManagers)
+├── UI Canvas             (loading-screen visuals)
+├── Framerate Controller  (FrameRateController)
+└── Services              (ServiceLocator)
+    ├── AudioManager    (nested prefab: Assets/Prefabs/Services/AudioManager.prefab — AudioManager + UiSfxPlayer)
     ├── MusicPlayer     (MusicPlayer)
     ├── SceneLoader     (SceneLoader)
     └── Api Client      (ApiClient)
 ```
 
-Game-specific singletons (e.g. a session or save-data service) should **not** be added to this prefab's own scripts — instead attach them as sibling `MonoBehaviour`s on the `Game Managers` root GameObject. They inherit `DontDestroyOnLoad` from the root and manage their own `Instance` references, without coupling the Framework to game code.
+Game-specific singletons (e.g. a session or save-data service) should **not** be added to this prefab's own scripts — instead attach them as sibling `MonoBehaviour`s on the `Standard Game Managers` root GameObject. They inherit `DontDestroyOnLoad` from the root and manage their own `Instance` references, without coupling the Framework to game code.
 
 ---
 
@@ -110,7 +117,7 @@ Game-specific singletons (e.g. a session or save-data service) should **not** be
 
 `Scripts/FrameRateController.cs`
 
-Drop as a sibling `MonoBehaviour` on the `Game Managers` prefab root. On mobile (`PlatformUtility.IsMobilePlatform()`), sets `Application.targetFrameRate` to the device's actual refresh rate (`Screen.currentResolution.refreshRateRatio.value`) in `Awake`. Does nothing on desktop.
+Drop as a sibling `MonoBehaviour` on the `Standard Game Managers` prefab root (already wired on the shipped prefab). On mobile (`PlatformUtility.IsMobilePlatform()`), sets `Application.targetFrameRate` to the device's actual refresh rate (`Screen.currentResolution.refreshRateRatio.value`) in `Awake`. Does nothing on desktop.
 
 This exists because `QualitySettings.vSyncCount` is ignored on Android/iOS — the OS controls presentation timing there, not Unity — so without an explicit target frame rate, mobile builds render uncapped and unevenly (reads as stutter/lag) no matter what Quality Settings' vSync toggle says. Desktop already vsyncs correctly via `QualitySettings.vSyncCount`, so it's left alone here.
 
@@ -262,6 +269,12 @@ GameManagers.Instance.Services.MusicPlayerService.Stop();
 
 Overall music volume is controlled independently via the mixer's exposed `MusicVolume` parameter (see `PlayerOptionsController`) — both `Music Ch1` and `Music Ch2` inherit it as children of `Music`, so no additional volume wiring is needed there.
 
+### PlaylistAutoStarter
+
+`Scripts/Services/Audio/PlaylistAutoStarter.cs`
+
+Drop on any GameObject in a scene to start a `MusicPlaylist` playing as soon as the scene loads, with no other script required. Assign the **Playlist** field; on `Start` it calls `GameManagers.Instance.Services.MusicPlayerService.Play(playlist)`. Useful for scenes (e.g. a main menu) that just need their music playing unconditionally, without a scene-specific controller.
+
 ---
 
 ## Scene Loading
@@ -308,7 +321,7 @@ A minimal, dependency-free REST client built on `UnityWebRequest` and Unity's `A
 
 `Scripts/Services/Networking/ApiConfig.cs`
 
-Create via **Assets → Create → Steel Horse → Networking → Api Config**. Holds a single `BaseUrl` string that every request is resolved against. Assign it on the **Api Client** component in the `Game Managers` prefab.
+Create via **Assets → Create → Steel Horse → Networking → Api Config**. Holds a single `BaseUrl` string that every request is resolved against. Assign it on the **Api Client** component in the `Standard Game Managers` prefab.
 
 ### ApiClient / IApiClient
 
@@ -464,22 +477,45 @@ PauseGame.IsPauseBlocked = true;
 
 `Scripts/UI/PlayerOptionsController.cs`
 
-Wires a settings screen's Master/SFX/Music volume sliders to an `AudioMixer` (via exposed float parameters, linear-to-decibel converted) and a quality-level dropdown to `QualitySettings`. Both are persisted to `PlayerPrefs` and restored on `Awake`.
+Wires a settings screen's Master/SFX/Music volume sliders to an `AudioMixer` (via exposed float parameters, linear-to-decibel converted), a quality-level dropdown to `QualitySettings`, and a resolution dropdown to `Screen.SetResolution`. All three are persisted to `PlayerPrefs` and restored/applied in `Start` (not `Awake` — `AudioMixer.SetFloat` calls made that early aren't reliably audible yet). Each group is independently optional: leaving a field unwired (e.g. no quality dropdown, no resolution dropdown) just skips that `Init*` call instead of erroring, so a game can opt out of any individual control.
 
 | Inspector Field | Description |
 | --- | --- |
 | Mixer | Target `AudioMixer` |
 | Master/SFX/Music Volume | Each: a `Slider`, the mixer's exposed parameter name, and a `PlayerPrefs` key |
 | Quality Dropdown | `TMP_Dropdown` populated from `QualitySettings.names` |
-| Quality Prefs Key | `PlayerPrefs` key for the saved quality index (default `"quality_level"`) |
+| Quality Prefs Key | `PlayerPrefs` key for the saved quality index (default `"QualityLevel"`) |
+| Resolution Dropdown | `TMP_Dropdown` populated from `Resolution Options` |
+| Resolution Options | `ResolutionOptions` asset — the curated list of selectable resolutions |
+| Resolution Prefs Key | `PlayerPrefs` key for the saved resolution index (default `"ResolutionIndex"`) |
+
+**Resolution behavior:** the dropdown's options come from the assigned `ResolutionOptions` asset, plus the player's current monitor resolution (`Screen.currentResolution`) appended automatically if it isn't already one of the curated entries — so the player can always run at their native resolution. On first run (nothing saved to `PlayerPrefs` yet), that monitor resolution is adopted as the default and immediately persisted, rather than falling back to whatever the first curated entry happens to be.
+
+Unity has no built-in event for resolution changes, so `PlayerOptionsController` exposes a static one that anything can subscribe to instead of polling `Screen.width`/`Screen.height`:
+
+```csharp
+private void OnEnable() => PlayerOptionsController.ResolutionChanged += OnResolutionChanged;
+private void OnDisable() => PlayerOptionsController.ResolutionChanged -= OnResolutionChanged;
+
+private void OnResolutionChanged(int width, int height) { /* ... */ }
+```
+
+It fires once during `PlayerOptionsController`'s own setup (restoring a saved resolution, or adopting the monitor's native one on first run) — that call doubles as the initial value, so subscribers don't need a separate first-sync path.
+
+### ResolutionOptions / ResolutionSetting
+
+`Scripts/UI/ResolutionOptions.cs`, `Scripts/UI/ResolutionSetting.cs`
+
+`ResolutionOptions` is a `ScriptableObject` (create via **Assets → Create → Steel Horse → UI → Resolution Options**) holding an array of `ResolutionSetting` entries — each just a `Vector2` resolution plus an inspector-only display name for recognizing entries while editing the asset (the dropdown shown to players is built from the resolution values, not this name). Assign one to `PlayerOptionsController`'s **Resolution Options** field to drive its resolution dropdown.
 
 ### UISelectableBase
 
 `Scripts/UI/UISelectableBase.cs`
 
-Abstract base class shared by `UIButton`, `UISlider`, and `UIDropdown`. Not used directly — implements the plumbing common to every Selectable-derived widget:
+`[RequireComponent(typeof(Selectable))]`. Abstract base class shared by `UIButton`, `UISlider`, and `UIDropdown`. Not used directly — implements the plumbing common to every Selectable-derived widget:
 
 - **Select Sfx Cue** — plays through `IAudioManager.PlaySfx` on `ISelectHandler.OnSelect`, which fires for both pointer hover-to-select and gamepad/keyboard navigation. Leave empty to skip.
+- **Mouse hover-to-select** — `IPointerEnterHandler.OnPointerEnter` moves EventSystem selection to the hovered widget (if interactable), so mouse hover drives the same highlight/select path as gamepad/keyboard navigation instead of only clicking. Skipped on mobile (`PlatformUtility.IsMobilePlatform()`) — touch fires `PointerEnter` alongside the tap itself, which would re-enable the auto-highlight look that `MenuPanel.Show()` and `SelectionGuard` deliberately clear on touch.
 
 Subclasses call the protected `PlaySfx(SfxCue)` helper (a no-op if the cue is null) to play their own control-specific interaction cue. For platform-conditional visibility, add `DisplayOnPlatform` alongside it instead — it isn't part of this class.
 
