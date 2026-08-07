@@ -21,7 +21,14 @@ Steel Horse Framework/
     ├── GameManagers.cs
     ├── PlatformUtility.cs
     ├── Editor/
-    │   └── OpenPersistendData.cs
+    │   ├── OpenPersistendData.cs
+    │   ├── TagDatabaseEditor.cs
+    │   ├── TagDatabaseLocator.cs
+    │   └── TagReferenceDrawer.cs
+    ├── Tags/
+    │   ├── TagDatabase.cs
+    │   ├── TagDefinition.cs
+    │   └── TagReference.cs
     └── Services/
         ├── ServiceLocator.cs
         ├── Audio/
@@ -396,6 +403,49 @@ You can call `SaveEncryption.Encrypt` / `SaveEncryption.Decrypt` directly if you
 
 ---
 
+## Tag System
+
+A designer-authorable tagging system: define tags once in a shared database asset, then assign them to any other asset or component via an enum-like dropdown — no free-typed strings scattered across the project.
+
+### TagDefinition
+
+`Scripts/Tags/TagDefinition.cs`
+
+A single tag entry: a plain-string `Key` (the stable identifier used in code and for equality — must be unique), a `LocalizedString DisplayName` (the player-facing text, e.g. for a filter UI), and a `Color` (e.g. for tinting chips/labels in UI — one canonical color per tag, defined here rather than per-usage). `Key` is intentionally not localized, since identity must stay stable across languages.
+
+### TagDatabase (ScriptableObject)
+
+`Scripts/Tags/TagDatabase.cs`
+
+```csharp
+[CreateAssetMenu(menuName = "Steel Horse/Tags/Tag Database", fileName = "Tag Database")]
+```
+
+Holds the list of `TagDefinition`s for a project. Multiple `TagDatabase` assets can exist (testing, backups, etc.), but only one is used at a time — see **Setting the active database** below. Logs a warning (`OnValidate`) if two tags share the same key, which can happen because Unity's list "+" button duplicates the previous element's values.
+
+```csharp
+if (myDatabase.TryGetTag("Enemy", out TagDefinition tag))
+    Debug.Log(tag.DisplayName.GetLocalizedString());
+```
+
+### TagReference
+
+`Scripts/Tags/TagReference.cs`
+
+The field type to put on other assets/components — a single tag slot, rendered as a dropdown by `TagReferenceDrawer`. Use an array/list of these to let a designer assign multiple tags:
+
+```csharp
+[SerializeField] private TagReference[] _tags;
+```
+
+### Setting the active database
+
+`Scripts/Editor/TagDatabaseLocator.cs`, `Scripts/Editor/TagDatabaseEditor.cs`
+
+Tag dropdowns read from a single "active" `TagDatabase`, tracked via `EditorBuildSettings`' named config-object slot (the same mechanism packages like Addressables use for singleton settings assets) rather than by searching the project — so having several `TagDatabase` assets around never causes ambiguity. Select a `TagDatabase` asset and click **Set as Active Tag Database** in its Inspector to designate it. If no database is active yet, tag dropdowns show a message prompting you to set one.
+
+---
+
 ## UI Helpers
 
 ### MenuPanel
@@ -620,7 +670,7 @@ Adds **Tools → Steel Horse → Open Persistent Data Path** to the Unity menu b
 
 | Package | Required by |
 | --- | --- |
-| Unity Localization (`com.unity.localization`) | `LanguageSwitcher` |
+| Unity Localization (`com.unity.localization`) | `LanguageSwitcher`, `TagDefinition` |
 | TextMeshPro (`com.unity.textmeshpro`) | `LoadingTextAnimator`, `VersionLabel` |
 | Unity Audio Mixer | `AudioManager`, `SfxCue`, `PlayerOptionsController`, `MusicPlayer`, `MusicPlaylist` |
 | Unity Input System (`com.unity.inputsystem`) | `MenuNavigator`, `PauseGame` |
@@ -640,5 +690,6 @@ Adds **Tools → Steel Horse → Open Persistent Data Path** to the Unity menu b
 | `SteelHorse.Framework.Services.Networking` | `ApiClient`, `IApiClient`, `ApiConfig`, `ApiResponse` |
 | `SteelHorse.Framework.Services.SceneLoading` | Scene loader classes |
 | `SteelHorse.Framework.Services.Save` | `LocalSaveService`, `SaveEncryption` |
+| `SteelHorse.Framework.Tags` | `TagDatabase`, `TagDefinition`, `TagReference` |
 | `SteelHorse.Framework.UI` | All UI helpers |
-| `SteelHorse.Framework.Editor` | Editor-only tools |
+| `SteelHorse.Framework.Editor` | Editor-only tools, incl. `TagDatabaseEditor`, `TagDatabaseLocator`, `TagReferenceDrawer` |
