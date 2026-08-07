@@ -57,7 +57,8 @@ Steel Horse Framework/
         ├── SceneLoader/
         │   ├── ISceneLoader.cs
         │   ├── SceneLoader.cs
-        │   └── LoadingTextAnimator.cs
+        │   ├── LoadingTextAnimator.cs
+        │   └── SkippableSceneLoader.cs
         ├── Tags/
         │   ├── ITagManager.cs
         │   └── TagManager.cs
@@ -322,6 +323,17 @@ Cycles through an array of strings on a `TextMeshProUGUI` label at a configurabl
 | Label | `TextMeshProUGUI` to update |
 | Texts | Array of strings to cycle through |
 | Delay | Seconds between each string |
+
+### SkippableSceneLoader
+
+`Scripts/Services/SceneLoader/SkippableSceneLoader.cs`
+
+Drives a Timeline-based scene transition (e.g. an intro/logo scene): call the public, parameterless `LoadNextScene()` from the Timeline itself (a Signal Emitter/Receiver at its end), and/or let the player trigger it early via any of the configured skip inputs. Guarded so only the first call (Timeline end or a skip input, whichever comes first) actually loads the scene.
+
+| Field | What to assign |
+| --- | --- |
+| Next Scene Name | Scene to load, passed to `ISceneLoader.LoadScene` |
+| Skip Actions | `InputActionReference[]` - add/remove whichever inputs (e.g. `UI/Submit`) should skip the transition early |
 
 ---
 
@@ -689,7 +701,7 @@ Adds **Tools → Steel Horse → Open Persistent Data Path** to the Unity menu b
 | Unity Localization (`com.unity.localization`) | `LanguageSwitcher`, `TagDefinition` |
 | TextMeshPro (`com.unity.textmeshpro`) | `LoadingTextAnimator`, `VersionLabel` |
 | Unity Audio Mixer | `AudioManager`, `SfxCue`, `PlayerOptionsController`, `MusicPlayer`, `MusicPlaylist` |
-| Unity Input System (`com.unity.inputsystem`) | `MenuNavigator`, `PauseGame` |
+| Unity Input System (`com.unity.inputsystem`) | `MenuNavigator`, `PauseGame`, `SkippableSceneLoader` |
 | DOTween (`com.demigiant.dotween`) | `UIPointer` |
 
 `ApiClient` only depends on `UnityEngine.Networking` (`UnityWebRequest`), which ships with Unity — no additional package required.
@@ -704,7 +716,7 @@ Adds **Tools → Steel Horse → Open Persistent Data Path** to the Unity menu b
 | `SteelHorse.Framework.Services` | `ServiceLocator` |
 | `SteelHorse.Framework.Services.Audio` | All audio classes |
 | `SteelHorse.Framework.Services.Networking` | `ApiClient`, `IApiClient`, `ApiConfig`, `ApiResponse` |
-| `SteelHorse.Framework.Services.SceneLoading` | Scene loader classes |
+| `SteelHorse.Framework.Services.SceneLoading` | Scene loader classes, incl. `SkippableSceneLoader` |
 | `SteelHorse.Framework.Services.Save` | `LocalSaveService`, `SaveEncryption` |
 | `SteelHorse.Framework.Services.Tags` | `TagManager`, `ITagManager` |
 | `SteelHorse.Framework.Tags` | `TagDatabase`, `TagDefinition`, `TagReference` |
