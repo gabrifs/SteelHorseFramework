@@ -18,7 +18,7 @@ namespace SteelHorse.Framework.UI
         }
 
         [Tooltip("Stay visible (but non-interactive) instead of hiding when a new panel is pushed on top of this one. Still hides fully when this panel itself is popped/closed.")]
-        [SerializeField] private bool _alwaysActive;
+        [SerializeField] private bool _stayActiveOnPush;
         [SerializeField] private Selectable _defaultFocus;
         [SerializeField] private bool _poppableOnCancel = true;
         [SerializeField] private List<Button> _popButtons;
@@ -87,7 +87,7 @@ namespace SteelHorse.Framework.UI
         // normally once it's the one being popped.
         public virtual void Hide(bool covering = false)
         {
-            bool staysVisible = covering && _alwaysActive;
+            bool staysVisible = covering && _stayActiveOnPush;
 
             if (!staysVisible)
                 Canvas.alpha = 0f;
