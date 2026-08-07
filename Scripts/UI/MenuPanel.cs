@@ -17,10 +17,10 @@ namespace SteelHorse.Framework.UI
             public MenuPanel Target;
         }
 
-        [SerializeField] private Selectable _defaultFocus;
-        [SerializeField] private bool _poppableOnCancel = true;
         [Tooltip("Stay visible (but non-interactive) instead of hiding when a new panel is pushed on top of this one. Still hides fully when this panel itself is popped/closed.")]
         [SerializeField] private bool _alwaysActive;
+        [SerializeField] private Selectable _defaultFocus;
+        [SerializeField] private bool _poppableOnCancel = true;
         [SerializeField] private List<Button> _popButtons;
         [SerializeField] private List<PushEntry> _pushEntries;
         [SerializeField] private UnityEvent _onShow;
