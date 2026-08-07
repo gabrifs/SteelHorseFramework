@@ -58,6 +58,9 @@ Steel Horse Framework/
         │   ├── ISceneLoader.cs
         │   ├── SceneLoader.cs
         │   └── LoadingTextAnimator.cs
+        ├── Tags/
+        │   ├── ITagManager.cs
+        │   └── TagManager.cs
         └── UI/
             ├── DisplayOnPlatform.cs
             ├── LanguageSwitcher.cs
@@ -101,6 +104,7 @@ GameManagers.Instance.Services.AudioManagerService.PlaySfx(cue);
 GameManagers.Instance.Services.MusicPlayerService.Play(playlist);
 GameManagers.Instance.Services.SceneLoaderService.LoadScene("GameScene");
 GameManagers.Instance.Services.ApiClientService.GetAsync("/api/v1/status");
+GameManagers.Instance.Services.TagManagerService.TryGetTag("Enemy", out TagDefinition tag);
 ```
 
 The prefab hierarchy is:
@@ -113,7 +117,8 @@ Standard Game Managers  (GameManagers)
     ├── AudioManager    (nested prefab: Assets/Prefabs/Services/AudioManager.prefab — AudioManager + UiSfxPlayer)
     ├── MusicPlayer     (MusicPlayer)
     ├── SceneLoader     (SceneLoader)
-    └── Api Client      (ApiClient)
+    ├── Api Client      (ApiClient)
+    └── Tag Manager     (TagManager)
 ```
 
 Game-specific singletons (e.g. a session or save-data service) should **not** be added to this prefab's own scripts — instead attach them as sibling `MonoBehaviour`s on the `Standard Game Managers` root GameObject. They inherit `DontDestroyOnLoad` from the root and manage their own `Instance` references, without coupling the Framework to game code.
@@ -144,7 +149,7 @@ Reads `UnityEngine.Device.Application.platform`, not plain `UnityEngine.Applicat
 
 `Scripts/Services/ServiceLocator.cs`
 
-Resolves `IAudioManager`, `IMusicPlayer`, `ISceneLoader`, and `IApiClient` from child GameObjects via `GetComponentInChildren`. You can swap implementations without touching any caller code — just replace the component on the prefab.
+Resolves `IAudioManager`, `IMusicPlayer`, `ISceneLoader`, `IApiClient`, and `ITagManager` from child GameObjects via `GetComponentInChildren`. You can swap implementations without touching any caller code — just replace the component on the prefab.
 
 ---
 
@@ -438,6 +443,17 @@ The field type to put on other assets/components — a single tag slot, rendered
 [SerializeField] private TagReference[] _tags;
 ```
 
+### TagManager / ITagManager
+
+`Scripts/Services/Tags/TagManager.cs`, `ITagManager.cs`
+
+`MonoBehaviour` implementation of `ITagManager` (resolved by `ServiceLocator` as `TagManagerService`). The "active database" mechanism below is editor-only — it drives the dropdown but never ships in a build, and a `TagReference` only ever serializes a plain `Key` string. `TagManager` is what resolves that key back into a `TagDefinition` at runtime: it holds a `[SerializeField] private TagDatabase _database` pointing at whichever database asset is meant to ship, assigned on the **Tag Manager** component in the `Standard Game Managers` prefab.
+
+```csharp
+if (GameManagers.Instance.Services.TagManagerService.TryGetTag(myTagReference, out TagDefinition tag))
+    Debug.Log(tag.DisplayName.GetLocalizedString());
+```
+
 ### Setting the active database
 
 `Scripts/Editor/TagDatabaseLocator.cs`, `Scripts/Editor/TagDatabaseEditor.cs`
@@ -690,6 +706,7 @@ Adds **Tools → Steel Horse → Open Persistent Data Path** to the Unity menu b
 | `SteelHorse.Framework.Services.Networking` | `ApiClient`, `IApiClient`, `ApiConfig`, `ApiResponse` |
 | `SteelHorse.Framework.Services.SceneLoading` | Scene loader classes |
 | `SteelHorse.Framework.Services.Save` | `LocalSaveService`, `SaveEncryption` |
+| `SteelHorse.Framework.Services.Tags` | `TagManager`, `ITagManager` |
 | `SteelHorse.Framework.Tags` | `TagDatabase`, `TagDefinition`, `TagReference` |
 | `SteelHorse.Framework.UI` | All UI helpers |
 | `SteelHorse.Framework.Editor` | Editor-only tools, incl. `TagDatabaseEditor`, `TagDatabaseLocator`, `TagReferenceDrawer` |
