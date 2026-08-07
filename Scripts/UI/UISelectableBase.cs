@@ -17,6 +17,13 @@ namespace SteelHorse.Framework.UI
         [Header("SFX")]
         [SerializeField] private SfxCue _selectSfxCue;
 
+        // The element the select cue last played for. Only ever advanced to a real
+        // selection, never cleared on deselect - so a silent deselect-then-reselect of the
+        // same element (e.g. SelectionGuard restoring focus after a click on empty space,
+        // which goes through a null selection in between) doesn't replay the cue, while an
+        // actual change to a different element still does.
+        private static GameObject _lastSfxSelected;
+
         private Selectable _selectable;
         private Selectable Selectable => _selectable != null ? _selectable : (_selectable = GetComponent<Selectable>());
 
@@ -29,6 +36,10 @@ namespace SteelHorse.Framework.UI
         // hook covers every input method.
         public void OnSelect(BaseEventData eventData)
         {
+            if (gameObject == _lastSfxSelected)
+                return;
+
+            _lastSfxSelected = gameObject;
             PlaySfx(_selectSfxCue);
         }
 

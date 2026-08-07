@@ -93,11 +93,17 @@ namespace SteelHorse.Framework.UI
         {
             ApplyVolume(entry.MixerParameter, linear);
             PlayerPrefs.SetFloat(entry.PrefsKey, linear);
-            // Flushed immediately (not just on OnApplicationQuit) so a change survives
-            // an abnormal exit (crash, task-kill, some mobile suspend paths) instead of
-            // silently reverting to a stale value on next launch.
-            PlayerPrefs.Save();
+
+            // PlayerPrefs.Save() is a synchronous disk flush - calling it on every tick of
+            // a mouse drag (which fires onValueChanged continuously) stutters the drag and
+            // the audio along with it. Debounced so it still survives an abnormal exit
+            // (crash, task-kill, some mobile suspend paths) shortly after the value
+            // settles, instead of flushing to disk on every intermediate value.
+            CancelInvoke(nameof(FlushPrefs));
+            Invoke(nameof(FlushPrefs), 0.5f);
         }
+
+        private void FlushPrefs() => PlayerPrefs.Save();
 
         private void ApplyVolume(string parameter, float linear) =>
             _mixer.SetFloat(parameter, linear > 0.0001f ? Mathf.Log10(linear) * 20f : -80f);

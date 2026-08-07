@@ -57,7 +57,11 @@ Steel Horse Framework/
         ├── SceneLoader/
         │   ├── ISceneLoader.cs
         │   ├── SceneLoader.cs
-        │   └── LoadingTextAnimator.cs
+        │   ├── LoadingTextAnimator.cs
+        │   └── SkippableSceneLoader.cs
+        ├── Tags/
+        │   ├── ITagManager.cs
+        │   └── TagManager.cs
         └── UI/
             ├── DisplayOnPlatform.cs
             ├── LanguageSwitcher.cs
@@ -101,6 +105,7 @@ GameManagers.Instance.Services.AudioManagerService.PlaySfx(cue);
 GameManagers.Instance.Services.MusicPlayerService.Play(playlist);
 GameManagers.Instance.Services.SceneLoaderService.LoadScene("GameScene");
 GameManagers.Instance.Services.ApiClientService.GetAsync("/api/v1/status");
+GameManagers.Instance.Services.TagManagerService.TryGetTag("Enemy", out TagDefinition tag);
 ```
 
 The prefab hierarchy is:
@@ -113,7 +118,8 @@ Standard Game Managers  (GameManagers)
     ├── AudioManager    (nested prefab: Assets/Prefabs/Services/AudioManager.prefab — AudioManager + UiSfxPlayer)
     ├── MusicPlayer     (MusicPlayer)
     ├── SceneLoader     (SceneLoader)
-    └── Api Client      (ApiClient)
+    ├── Api Client      (ApiClient)
+    └── Tag Manager     (TagManager)
 ```
 
 Game-specific singletons (e.g. a session or save-data service) should **not** be added to this prefab's own scripts — instead attach them as sibling `MonoBehaviour`s on the `Standard Game Managers` root GameObject. They inherit `DontDestroyOnLoad` from the root and manage their own `Instance` references, without coupling the Framework to game code.
@@ -144,7 +150,7 @@ Reads `UnityEngine.Device.Application.platform`, not plain `UnityEngine.Applicat
 
 `Scripts/Services/ServiceLocator.cs`
 
-Resolves `IAudioManager`, `IMusicPlayer`, `ISceneLoader`, and `IApiClient` from child GameObjects via `GetComponentInChildren`. You can swap implementations without touching any caller code — just replace the component on the prefab.
+Resolves `IAudioManager`, `IMusicPlayer`, `ISceneLoader`, `IApiClient`, and `ITagManager` from child GameObjects via `GetComponentInChildren`. You can swap implementations without touching any caller code — just replace the component on the prefab.
 
 ---
 
@@ -318,6 +324,17 @@ Cycles through an array of strings on a `TextMeshProUGUI` label at a configurabl
 | Texts | Array of strings to cycle through |
 | Delay | Seconds between each string |
 
+### SkippableSceneLoader
+
+`Scripts/Services/SceneLoader/SkippableSceneLoader.cs`
+
+Drives a Timeline-based scene transition (e.g. an intro/logo scene): call the public, parameterless `LoadNextScene()` from the Timeline itself (a Signal Emitter/Receiver at its end), and/or let the player trigger it early via any of the configured skip inputs. Guarded so only the first call (Timeline end or a skip input, whichever comes first) actually loads the scene.
+
+| Field | What to assign |
+| --- | --- |
+| Next Scene Name | Scene to load, passed to `ISceneLoader.LoadScene` |
+| Skip Actions | `InputActionReference[]` - add/remove whichever inputs (e.g. `UI/Submit`) should skip the transition early |
+
 ---
 
 ## Networking
@@ -436,6 +453,17 @@ The field type to put on other assets/components — a single tag slot, rendered
 
 ```csharp
 [SerializeField] private TagReference[] _tags;
+```
+
+### TagManager / ITagManager
+
+`Scripts/Services/Tags/TagManager.cs`, `ITagManager.cs`
+
+`MonoBehaviour` implementation of `ITagManager` (resolved by `ServiceLocator` as `TagManagerService`). The "active database" mechanism below is editor-only — it drives the dropdown but never ships in a build, and a `TagReference` only ever serializes a plain `Key` string. `TagManager` is what resolves that key back into a `TagDefinition` at runtime: it holds a `[SerializeField] private TagDatabase _database` pointing at whichever database asset is meant to ship, assigned on the **Tag Manager** component in the `Standard Game Managers` prefab.
+
+```csharp
+if (GameManagers.Instance.Services.TagManagerService.TryGetTag(myTagReference, out TagDefinition tag))
+    Debug.Log(tag.DisplayName.GetLocalizedString());
 ```
 
 ### Setting the active database
@@ -673,7 +701,7 @@ Adds **Tools → Steel Horse → Open Persistent Data Path** to the Unity menu b
 | Unity Localization (`com.unity.localization`) | `LanguageSwitcher`, `TagDefinition` |
 | TextMeshPro (`com.unity.textmeshpro`) | `LoadingTextAnimator`, `VersionLabel` |
 | Unity Audio Mixer | `AudioManager`, `SfxCue`, `PlayerOptionsController`, `MusicPlayer`, `MusicPlaylist` |
-| Unity Input System (`com.unity.inputsystem`) | `MenuNavigator`, `PauseGame` |
+| Unity Input System (`com.unity.inputsystem`) | `MenuNavigator`, `PauseGame`, `SkippableSceneLoader` |
 | DOTween (`com.demigiant.dotween`) | `UIPointer` |
 
 `ApiClient` only depends on `UnityEngine.Networking` (`UnityWebRequest`), which ships with Unity — no additional package required.
@@ -688,8 +716,9 @@ Adds **Tools → Steel Horse → Open Persistent Data Path** to the Unity menu b
 | `SteelHorse.Framework.Services` | `ServiceLocator` |
 | `SteelHorse.Framework.Services.Audio` | All audio classes |
 | `SteelHorse.Framework.Services.Networking` | `ApiClient`, `IApiClient`, `ApiConfig`, `ApiResponse` |
-| `SteelHorse.Framework.Services.SceneLoading` | Scene loader classes |
+| `SteelHorse.Framework.Services.SceneLoading` | Scene loader classes, incl. `SkippableSceneLoader` |
 | `SteelHorse.Framework.Services.Save` | `LocalSaveService`, `SaveEncryption` |
+| `SteelHorse.Framework.Services.Tags` | `TagManager`, `ITagManager` |
 | `SteelHorse.Framework.Tags` | `TagDatabase`, `TagDefinition`, `TagReference` |
 | `SteelHorse.Framework.UI` | All UI helpers |
 | `SteelHorse.Framework.Editor` | Editor-only tools, incl. `TagDatabaseEditor`, `TagDatabaseLocator`, `TagReferenceDrawer` |
