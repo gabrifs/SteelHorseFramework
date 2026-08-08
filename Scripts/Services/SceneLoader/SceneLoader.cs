@@ -10,6 +10,8 @@ namespace SteelHorse.Framework.Services.SceneLoading
         [SerializeField] private LoadingTextAnimator _loadingTextAnimator;
         [SerializeField] private float _fadeDuration = 0.3f;
 
+        public void Setup() { }
+
         public void LoadScene(string sceneName)
         {
             StartCoroutine(LoadSceneCoroutine(sceneName));

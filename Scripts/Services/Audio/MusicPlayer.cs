@@ -21,7 +21,16 @@ namespace SteelHorse.Framework.Services.Audio
         private bool _isPlaying;
         private Coroutine _playbackRoutine;
 
-        private void Awake()
+        // Called explicitly by ServiceLocator.Setup() (itself called once from
+        // GameManagers.Awake(), only on the surviving singleton) rather than via
+        // MonoBehaviour Awake/Start. MusicPlayer lives on the "Main Game Managers"
+        // prefab, which is placed in every scene as a duplicate-protect singleton;
+        // an Awake/Start here would also run on short-lived duplicate instances
+        // before GameManagers destroys them, and MusicChannel's constructor writes
+        // to the AudioMixer's exposed parameters — shared/global state, not
+        // per-instance — which would silently clobber the real player's volume on
+        // every scene load. Driving setup explicitly sidesteps that entirely.
+        public void Setup()
         {
             _channelA = new MusicChannel(gameObject.AddComponent<AudioSource>(), _channelAGroup, _mixer, _channelAVolumeParameter);
             _channelB = new MusicChannel(gameObject.AddComponent<AudioSource>(), _channelBGroup, _mixer, _channelBVolumeParameter);

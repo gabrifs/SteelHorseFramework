@@ -152,6 +152,8 @@ Reads `UnityEngine.Device.Application.platform`, not plain `UnityEngine.Applicat
 
 Resolves `IAudioManager`, `IMusicPlayer`, `ISceneLoader`, `IApiClient`, and `ITagManager` from child GameObjects via `GetComponentInChildren`. You can swap implementations without touching any caller code — just replace the component on the prefab.
 
+Every service interface exposes a `Setup()` method, which `ServiceLocator.Setup()` calls explicitly right after resolving each service — deterministically, exactly once, only on the surviving singleton (see [GameManagers](#gamemanagers)). Services must not use `Awake`/`Start` for their own initialization: the `Standard Game Managers` prefab is placed in every scene as a duplicate-protect singleton, so `Awake`/`Start` on a service component can still run on a short-lived duplicate before `GameManagers` destroys it — `Setup()` sidesteps that entirely by only ever running through the one `ServiceLocator.Setup()` call.
+
 ---
 
 ## Audio System

@@ -2,6 +2,8 @@ namespace SteelHorse.Framework.Services.Audio
 {
     public interface IMusicPlayer
     {
+        void Setup();
+
         void Play(MusicPlaylist playlist);
 
         // fadeDuration < 0 (default): fade out over the currently playing
