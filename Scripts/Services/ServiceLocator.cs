@@ -1,8 +1,8 @@
 using UnityEngine;
 using SteelHorse.Framework.Services.Audio;
+using SteelHorse.Framework.Services.Database;
 using SteelHorse.Framework.Services.Networking;
 using SteelHorse.Framework.Services.SceneLoading;
-using SteelHorse.Framework.Services.Tags;
 
 namespace SteelHorse.Framework.Services
 {
@@ -12,7 +12,7 @@ namespace SteelHorse.Framework.Services
         public IMusicPlayer MusicPlayerService { get; private set; }
         public ISceneLoader SceneLoaderService { get; private set; }
         public IApiClient ApiClientService { get; private set; }
-        public ITagManager TagManagerService { get; private set; }
+        public IDatabaseService DatabaseService { get; private set; }
 
         public void Setup()
         {
@@ -28,8 +28,8 @@ namespace SteelHorse.Framework.Services
             ApiClientService = GetComponentInChildren<IApiClient>();
             ApiClientService.Setup();
 
-            TagManagerService = GetComponentInChildren<ITagManager>();
-            TagManagerService.Setup();
+            DatabaseService = GetComponentInChildren<IDatabaseService>();
+            DatabaseService.Setup();
         }
     }
 }

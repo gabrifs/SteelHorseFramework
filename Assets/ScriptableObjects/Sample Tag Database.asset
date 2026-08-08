@@ -12,40 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9f333acd77356774c9187225e45e5d56, type: 3}
   m_Name: Sample Tag Database
   m_EditorClassIdentifier: Assembly-CSharp::SteelHorse.Framework.Tags.TagDatabase
-  _tags:
-  - _key: undead
-    _displayName:
-      m_TableReference:
-        m_TableCollectionName: GUID:45a2f7475a8f22a4783fcd539351b154
-      m_TableEntryReference:
-        m_KeyId: 168646463488
-        m_Key: 
-      m_FallbackState: 0
-      m_WaitForCompletion: 0
-      m_LocalVariables: []
-    _color: {r: 0.81641823, g: 1, b: 0, a: 1}
-  - _key: weapon
-    _displayName:
-      m_TableReference:
-        m_TableCollectionName: GUID:45a2f7475a8f22a4783fcd539351b154
-      m_TableEntryReference:
-        m_KeyId: 207577993216
-        m_Key: 
-      m_FallbackState: 0
-      m_WaitForCompletion: 0
-      m_LocalVariables: []
-    _color: {r: 1, g: 0, b: 0, a: 1}
-  - _key: monster
-    _displayName:
-      m_TableReference:
-        m_TableCollectionName: GUID:45a2f7475a8f22a4783fcd539351b154
-      m_TableEntryReference:
-        m_KeyId: 243581898752
-        m_Key: 
-      m_FallbackState: 0
-      m_WaitForCompletion: 0
-      m_LocalVariables: []
-    _color: {r: 1, g: 0, b: 0, a: 1}
+  _entries:
+  - {fileID: 11400000, guid: 4be2e3c62fb24a12b2a24db73d44866b, type: 2}
+  - {fileID: 11400000, guid: 25c5b69e93564e49bf2c8950f86e2318, type: 2}
+  - {fileID: 11400000, guid: 7440076d39d746e29a1c7326029edc95, type: 2}
   references:
     version: 2
     RefIds: []

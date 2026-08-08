@@ -28,13 +28,13 @@ namespace SteelHorse.Framework.Editor
 
             for (int i = 0; i < tags.Count; i++)
             {
-                options[i] = string.IsNullOrEmpty(tags[i].Key) ? "(unnamed)" : tags[i].Key;
-                if (tags[i].Key == keyProp.stringValue)
+                options[i] = tags[i] == null || string.IsNullOrEmpty(tags[i].Key) ? "(unassigned)" : tags[i].Key;
+                if (tags[i] != null && tags[i].Key == keyProp.stringValue)
                     selectedIndex = i;
             }
 
             int newIndex = EditorGUI.Popup(position, label.text, selectedIndex, options);
-            if (newIndex >= 0 && newIndex != selectedIndex)
+            if (newIndex >= 0 && newIndex != selectedIndex && tags[newIndex] != null)
                 keyProp.stringValue = tags[newIndex].Key;
 
             EditorGUI.EndProperty();

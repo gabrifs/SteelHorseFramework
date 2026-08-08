@@ -193,9 +193,9 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4947552553456667678}
-  - component: {fileID: 7969903312465411942}
+  - component: {fileID: 643082718961465867}
   m_Layer: 0
-  m_Name: Tag Manager
+  m_Name: Database Service
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -216,7 +216,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1118498606182018059}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &7969903312465411942
+--- !u!114 &643082718961465867
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -225,10 +225,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 580337313113582145}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1aa4c8a11b04cdb439d9685dbf93771a, type: 3}
+  m_Script: {fileID: 11500000, guid: 94edb84646a969847883ebc67e387556, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SteelHorse.Framework.Services.Tags.TagManager
-  _database: {fileID: 11400000, guid: 885be9e953eb672468f3ef90c987ca1f, type: 2}
+  m_EditorClassIdentifier: Assembly-CSharp::SteelHorse.Framework.Services.Database.DatabaseService
+  _gameDatabase: {fileID: 11400000, guid: fb4cada96ad84704ea2fb8c0ae9917d3, type: 2}
 --- !u!1 &822446668388863815
 GameObject:
   m_ObjectHideFlags: 0
