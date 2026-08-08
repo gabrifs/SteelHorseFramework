@@ -20,10 +20,16 @@ namespace SteelHorse.Framework.Services
             AudioManagerService.Setup();
 
             MusicPlayerService = GetComponentInChildren<IMusicPlayer>();
+            MusicPlayerService.Setup();
 
             SceneLoaderService = GetComponentInChildren<ISceneLoader>();
+            SceneLoaderService.Setup();
+
             ApiClientService = GetComponentInChildren<IApiClient>();
+            ApiClientService.Setup();
+
             TagManagerService = GetComponentInChildren<ITagManager>();
+            TagManagerService.Setup();
         }
     }
 }

@@ -12,6 +12,8 @@ namespace SteelHorse.Framework.Services.Networking
 
         [SerializeField] private ApiConfig _config;
 
+        public void Setup() { }
+
         public Awaitable<ApiResponse> GetAsync(string endpoint, IDictionary<string, string> headers = null, CancellationToken cancellationToken = default)
         {
             return SendRequestAsync(UnityWebRequest.Get(BuildUrl(endpoint)), headers, null, cancellationToken);

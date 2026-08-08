@@ -7,6 +7,8 @@ namespace SteelHorse.Framework.Services.Tags
     {
         [SerializeField] private TagDatabase _database;
 
+        public void Setup() { }
+
         public bool TryGetTag(string key, out TagDefinition tag)
         {
             return _database.TryGetTag(key, out tag);
