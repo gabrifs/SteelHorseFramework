@@ -17,12 +17,20 @@ namespace SteelHorse.Framework.UI
             public MenuPanel Target;
         }
 
+        [Serializable]
+        private struct ButtonEvent
+        {
+            public Button Button;
+            public UnityEvent Event;
+        }
+
         [Tooltip("Stay visible (but non-interactive) instead of hiding when a new panel is pushed on top of this one. Still hides fully when this panel itself is popped/closed.")]
         [SerializeField] private bool _stayActiveOnPush;
         [SerializeField] private Selectable _defaultFocus;
         [SerializeField] private bool _poppableOnCancel = true;
         [SerializeField] private List<Button> _popButtons;
         [SerializeField] private List<PushEntry> _pushEntries;
+        [SerializeField] private List<ButtonEvent> _buttonEvents;
         [SerializeField] private UnityEvent _onShow;
         [SerializeField] private UnityEvent _onHide;
 
@@ -54,6 +62,12 @@ namespace SteelHorse.Framework.UI
                 var trigger = entry.Trigger;
                 trigger.onClick.AddListener(() => PushRequested?.Invoke(target, trigger));
             }
+
+            foreach (var entry in _buttonEvents)
+            {
+                var buttonEvent = entry.Event;
+                entry.Button.onClick.AddListener(() => buttonEvent?.Invoke());
+            }
         }
 
         protected virtual void OnDestroy()
@@ -63,6 +77,9 @@ namespace SteelHorse.Framework.UI
 
             foreach (var entry in _pushEntries)
                 entry.Trigger.onClick.RemoveAllListeners();
+
+            foreach (var entry in _buttonEvents)
+                entry.Button.onClick.RemoveAllListeners();
         }
 
         public void Pop() => PopRequested?.Invoke();

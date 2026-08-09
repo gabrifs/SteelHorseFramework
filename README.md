@@ -529,6 +529,7 @@ Tag dropdowns read from a single "active" `TagDatabase`, tracked via `EditorBuil
 | Always Active | Stays visible (`alpha = 1`) but non-interactive while covered by a new push, instead of hiding — see below |
 | Pop Buttons | Buttons that fire `PopRequested` when clicked |
 | Push Entries | Pairs of `Button Trigger` → `MenuPanel Target` that fire `PushRequested` when the trigger is clicked |
+| Button Events | Pairs of `Button Button` → `UnityEvent Event`, for one-off button actions (e.g. `MenuActions.QuitApplication`) that don't need a push/pop |
 | On Show / On Hide | `UnityEvent` callbacks for animations or audio |
 
 `Show()` sets `alpha = 1`, enables interaction and raycasts, moves EventSystem focus to the default (or overridden) selectable, and fires `OnShow`. `Hide(bool covering = false)` disables interaction/raycasts and fires `OnHide`; it also zeroes `alpha` unless the panel is both **Always Active** and being hidden because a new panel was pushed on top of it (`covering: true` — that's what `MenuNavigator.Push` passes for the panel it's covering). Popping a panel always calls `Hide()` with `covering` left `false`, so an **Always Active** panel still disappears normally once it's the one being closed, rather than staying stuck on screen. Both `Show`/`Hide` are `virtual` so subclasses (e.g. `TabsMenuPanel`) can extend them. Call `Pop()` directly from script (e.g. after a successful form submission) to request a pop without a wired button.
