@@ -34,8 +34,17 @@ namespace SteelHorse.Framework.UI
         private CanvasGroup _canvasGroup;
         private CanvasGroup Canvas => _canvasGroup != null ? _canvasGroup : (_canvasGroup = GetComponent<CanvasGroup>());
 
+        // Optional: panels that are also their own Canvas (e.g. Town location panels)
+        // need these disabled while hidden, since a CanvasGroup alpha of 0 alone still
+        // renders and still gets raycast against every frame.
+        private Canvas _canvas;
+        private GraphicRaycaster _graphicRaycaster;
+
         protected virtual void Awake()
         {
+            _canvas = GetComponent<Canvas>();
+            _graphicRaycaster = GetComponent<GraphicRaycaster>();
+
             foreach (var btn in _popButtons)
                 btn.onClick.AddListener(() => PopRequested?.Invoke());
 
@@ -63,6 +72,11 @@ namespace SteelHorse.Framework.UI
             Canvas.alpha = 1f;
             Canvas.interactable = true;
             Canvas.blocksRaycasts = true;
+
+            if (_canvas != null)
+                _canvas.enabled = true;
+            if (_graphicRaycaster != null)
+                _graphicRaycaster.enabled = true;
 
             // On mobile there's no gamepad/keyboard navigation to seed, and leaving a
             // button auto-selected would show it highlighted despite nobody touching it.
@@ -94,6 +108,11 @@ namespace SteelHorse.Framework.UI
 
             Canvas.interactable = false;
             Canvas.blocksRaycasts = false;
+
+            if (_canvas != null)
+                _canvas.enabled = staysVisible;
+            if (_graphicRaycaster != null)
+                _graphicRaycaster.enabled = false;
 
             _onHide?.Invoke();
         }
