@@ -1,11 +1,10 @@
-using System;
 using UnityEngine;
 using UnityEngine.Localization;
 
 namespace SteelHorse.Framework.Tags
 {
-    [Serializable]
-    public class TagDefinition
+    [CreateAssetMenu(menuName = "Steel Horse/Tags/Tag Definition", fileName = "New Tag Definition")]
+    public class TagDefinition : ScriptableObject
     {
         public string Key { get { return _key; } }
         public LocalizedString DisplayName { get { return _displayName; } }

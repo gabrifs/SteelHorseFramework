@@ -25,6 +25,9 @@ Steel Horse Framework/
     │   ├── TagDatabaseEditor.cs
     │   ├── TagDatabaseLocator.cs
     │   └── TagReferenceDrawer.cs
+    ├── Database/
+    │   ├── Database.cs
+    │   └── GameDatabase.cs
     ├── Tags/
     │   ├── TagDatabase.cs
     │   ├── TagDefinition.cs
@@ -59,9 +62,9 @@ Steel Horse Framework/
         │   ├── SceneLoader.cs
         │   ├── LoadingTextAnimator.cs
         │   └── SkippableSceneLoader.cs
-        ├── Tags/
-        │   ├── ITagManager.cs
-        │   └── TagManager.cs
+        ├── Database/
+        │   ├── IDatabaseService.cs
+        │   └── DatabaseService.cs
         └── UI/
             ├── DisplayOnPlatform.cs
             ├── LanguageSwitcher.cs
@@ -105,7 +108,7 @@ GameManagers.Instance.Services.AudioManagerService.PlaySfx(cue);
 GameManagers.Instance.Services.MusicPlayerService.Play(playlist);
 GameManagers.Instance.Services.SceneLoaderService.LoadScene("GameScene");
 GameManagers.Instance.Services.ApiClientService.GetAsync("/api/v1/status");
-GameManagers.Instance.Services.TagManagerService.TryGetTag("Enemy", out TagDefinition tag);
+GameManagers.Instance.Services.DatabaseService.Get<TagDatabase>().TryGetTag("Enemy", out TagDefinition tag);
 ```
 
 The prefab hierarchy is:
@@ -119,7 +122,7 @@ Standard Game Managers  (GameManagers)
     ├── MusicPlayer     (MusicPlayer)
     ├── SceneLoader     (SceneLoader)
     ├── Api Client      (ApiClient)
-    └── Tag Manager     (TagManager)
+    └── Database Service (DatabaseService)
 ```
 
 Game-specific singletons (e.g. a session or save-data service) should **not** be added to this prefab's own scripts — instead attach them as sibling `MonoBehaviour`s on the `Standard Game Managers` root GameObject. They inherit `DontDestroyOnLoad` from the root and manage their own `Instance` references, without coupling the Framework to game code.
@@ -150,7 +153,7 @@ Reads `UnityEngine.Device.Application.platform`, not plain `UnityEngine.Applicat
 
 `Scripts/Services/ServiceLocator.cs`
 
-Resolves `IAudioManager`, `IMusicPlayer`, `ISceneLoader`, `IApiClient`, and `ITagManager` from child GameObjects via `GetComponentInChildren`. You can swap implementations without touching any caller code — just replace the component on the prefab.
+Resolves `IAudioManager`, `IMusicPlayer`, `ISceneLoader`, `IApiClient`, and `IDatabaseService` from child GameObjects via `GetComponentInChildren`. You can swap implementations without touching any caller code — just replace the component on the prefab.
 
 Every service interface exposes a `Setup()` method, which `ServiceLocator.Setup()` calls explicitly right after resolving each service — deterministically, exactly once, only on the surviving singleton (see [GameManagers](#gamemanagers)). Services must not use `Awake`/`Start` for their own initialization: the `Standard Game Managers` prefab is placed in every scene as a duplicate-protect singleton, so `Awake`/`Start` on a service component can still run on a short-lived duplicate before `GameManagers` destroys it — `Setup()` sidesteps that entirely by only ever running through the one `ServiceLocator.Setup()` call.
 
@@ -422,15 +425,58 @@ You can call `SaveEncryption.Encrypt` / `SaveEncryption.Decrypt` directly if you
 
 ---
 
+## Database System
+
+A generic way to register and resolve game-wide data collections ("databases") at runtime, without hand-rolling a new `IXManager`/`XManager`/`ServiceLocator` property for every one. `TagDatabase` is one instance of this system; game-specific databases (portraits, factions, etc.) are others.
+
+### Database / Database\<TEntry\> (ScriptableObject)
+
+`Scripts/Database/Database.cs`
+
+`Database` is a non-generic abstract marker — every concrete database asset type derives from it (directly or via `Database<TEntry>`), which is what lets `GameDatabase` hold a single heterogeneous list of them. `Database<TEntry>` adds the actual list: `[SerializeField] protected List<TEntry> _entries`, exposed as `IReadOnlyList<TEntry> Entries`. A concrete database is a small subclass supplying `TEntry` and its own `[CreateAssetMenu]`, e.g. `TagDatabase : Database<TagDefinition>`. `TEntry` can be a plain `[Serializable]` class embedded directly in the list (like `TagDefinition`) or a `ScriptableObject` asset reference (like a game-specific `PortraitData`) — both serialize fine through the same `List<TEntry>` field.
+
+### GameDatabase (ScriptableObject)
+
+`Scripts/Database/GameDatabase.cs`
+
+```csharp
+[CreateAssetMenu(menuName = "Steel Horse/Database/Game Database", fileName = "Game Database")]
+```
+
+Holds every `Database` the game needs as one flat, heterogeneous `List<Database>`. Look one up by its concrete type:
+
+```csharp
+FactionsDatabase factions = myGameDatabase.Get<FactionsDatabase>();
+```
+
+Adding a new database to the game only means adding it to this list in the Inspector — no code changes to `GameDatabase`, `DatabaseService`, or `ServiceLocator` are needed.
+
+### DatabaseService / IDatabaseService
+
+`Scripts/Services/Database/DatabaseService.cs`, `IDatabaseService.cs`
+
+`MonoBehaviour` implementation of `IDatabaseService` (resolved by `ServiceLocator` as `DatabaseService`). Holds a `[SerializeField] private GameDatabase _gameDatabase` pointing at whichever `GameDatabase` asset is meant to ship, assigned on the **Database Service** component in the `Standard Game Managers` prefab, and forwards `Get<TDatabase>()`/`TryGet<TDatabase>()` to it.
+
+```csharp
+if (GameManagers.Instance.Services.DatabaseService.TryGet(out TagDatabase tags) && tags.TryGetTag("Enemy", out TagDefinition tag))
+    Debug.Log(tag.DisplayName.GetLocalizedString());
+```
+
+---
+
 ## Tag System
 
-A designer-authorable tagging system: define tags once in a shared database asset, then assign them to any other asset or component via an enum-like dropdown — no free-typed strings scattered across the project.
+A designer-authorable tagging system: define each tag as its own asset, add it to a shared database asset, then assign it to any other asset or component via an enum-like dropdown — no free-typed strings scattered across the project.
 
-### TagDefinition
+### TagDefinition (ScriptableObject)
 
 `Scripts/Tags/TagDefinition.cs`
 
-A single tag entry: a plain-string `Key` (the stable identifier used in code and for equality — must be unique), a `LocalizedString DisplayName` (the player-facing text, e.g. for a filter UI), and a `Color` (e.g. for tinting chips/labels in UI — one canonical color per tag, defined here rather than per-usage). `Key` is intentionally not localized, since identity must stay stable across languages.
+```csharp
+[CreateAssetMenu(menuName = "Steel Horse/Tags/Tag Definition", fileName = "New Tag Definition")]
+```
+
+One tag = one asset: a plain-string `Key` (the stable identifier used in code and for equality — must be unique), a `LocalizedString DisplayName` (the player-facing text, e.g. for a filter UI), and a `Color` (e.g. for tinting chips/labels in UI — one canonical color per tag, defined here rather than per-usage). `Key` is intentionally not localized, since identity must stay stable across languages. Entries in a `TagDatabase`'s list are references to these assets, not embedded data — so an unassigned list slot is `null`; `TagDatabase`/`TagReferenceDrawer` both guard against that.
 
 ### TagDatabase (ScriptableObject)
 
@@ -438,9 +484,10 @@ A single tag entry: a plain-string `Key` (the stable identifier used in code and
 
 ```csharp
 [CreateAssetMenu(menuName = "Steel Horse/Tags/Tag Database", fileName = "Tag Database")]
+public class TagDatabase : Database<TagDefinition>
 ```
 
-Holds the list of `TagDefinition`s for a project. Multiple `TagDatabase` assets can exist (testing, backups, etc.), but only one is used at a time — see **Setting the active database** below. Logs a warning (`OnValidate`) if two tags share the same key, which can happen because Unity's list "+" button duplicates the previous element's values.
+Holds a list of `TagDefinition` asset references for a project (via the [Database System](#database-system)'s `Database<TEntry>` base). Multiple `TagDatabase` assets can exist (testing, backups, etc.), but only one is used at a time — see **Setting the active database** below. Logs a warning (`OnValidate`) if two entries share the same key, which can happen because Unity's list "+" button duplicates the previous element's reference.
 
 ```csharp
 if (myDatabase.TryGetTag("Enemy", out TagDefinition tag))
@@ -457,16 +504,7 @@ The field type to put on other assets/components — a single tag slot, rendered
 [SerializeField] private TagReference[] _tags;
 ```
 
-### TagManager / ITagManager
-
-`Scripts/Services/Tags/TagManager.cs`, `ITagManager.cs`
-
-`MonoBehaviour` implementation of `ITagManager` (resolved by `ServiceLocator` as `TagManagerService`). The "active database" mechanism below is editor-only — it drives the dropdown but never ships in a build, and a `TagReference` only ever serializes a plain `Key` string. `TagManager` is what resolves that key back into a `TagDefinition` at runtime: it holds a `[SerializeField] private TagDatabase _database` pointing at whichever database asset is meant to ship, assigned on the **Tag Manager** component in the `Standard Game Managers` prefab.
-
-```csharp
-if (GameManagers.Instance.Services.TagManagerService.TryGetTag(myTagReference, out TagDefinition tag))
-    Debug.Log(tag.DisplayName.GetLocalizedString());
-```
+Resolve one back into a `TagDefinition` at runtime through the `DatabaseService` (see above) — there is no dedicated Tag service anymore, `TagDatabase` is just another `Database` fetched by type.
 
 ### Setting the active database
 
@@ -491,6 +529,7 @@ Tag dropdowns read from a single "active" `TagDatabase`, tracked via `EditorBuil
 | Always Active | Stays visible (`alpha = 1`) but non-interactive while covered by a new push, instead of hiding — see below |
 | Pop Buttons | Buttons that fire `PopRequested` when clicked |
 | Push Entries | Pairs of `Button Trigger` → `MenuPanel Target` that fire `PushRequested` when the trigger is clicked |
+| Button Events | Pairs of `Button Button` → `UnityEvent Event`, for one-off button actions (e.g. `MenuActions.QuitApplication`) that don't need a push/pop |
 | On Show / On Hide | `UnityEvent` callbacks for animations or audio |
 
 `Show()` sets `alpha = 1`, enables interaction and raycasts, moves EventSystem focus to the default (or overridden) selectable, and fires `OnShow`. `Hide(bool covering = false)` disables interaction/raycasts and fires `OnHide`; it also zeroes `alpha` unless the panel is both **Always Active** and being hidden because a new panel was pushed on top of it (`covering: true` — that's what `MenuNavigator.Push` passes for the panel it's covering). Popping a panel always calls `Hide()` with `covering` left `false`, so an **Always Active** panel still disappears normally once it's the one being closed, rather than staying stuck on screen. Both `Show`/`Hide` are `virtual` so subclasses (e.g. `TabsMenuPanel`) can extend them. Call `Pop()` directly from script (e.g. after a successful form submission) to request a pop without a wired button.
@@ -498,6 +537,12 @@ Tag dropdowns read from a single "active" `TagDatabase`, tracked via `EditorBuil
 Use **Always Active** for a panel meant to stay visible as a backdrop while things stack on top of it (e.g. a main menu behind a Settings overlay) — interaction is always disabled while covered, so clicks/navigation still go to whichever panel is actually on top.
 
 On mobile (`PlatformUtility.IsMobilePlatform()`), `Show()` clears the EventSystem selection instead of setting focus — there's no gamepad/keyboard navigation on touch, and leaving a button auto-selected would show it highlighted despite nobody touching it. `SelectionGuard` disables itself on mobile for the same reason, so it doesn't restore the selection `Show()` just cleared.
+
+### MenuActions
+
+`Scripts/UI/MenuActions.cs`
+
+Grab-bag of plain public methods meant to be wired to a `MenuPanel`'s Button Events (or any other `UnityEvent`) from the Inspector, so a panel doesn't need a bespoke controller for a single Quit or Load Scene button. Currently exposes `QuitApplication()` and `LoadScene(string sceneName)`. Coexists with `SampleMenuController` rather than replacing it.
 
 ### MenuNavigator
 
@@ -720,7 +765,8 @@ Adds **Tools → Steel Horse → Open Persistent Data Path** to the Unity menu b
 | `SteelHorse.Framework.Services.Networking` | `ApiClient`, `IApiClient`, `ApiConfig`, `ApiResponse` |
 | `SteelHorse.Framework.Services.SceneLoading` | Scene loader classes, incl. `SkippableSceneLoader` |
 | `SteelHorse.Framework.Services.Save` | `LocalSaveService`, `SaveEncryption` |
-| `SteelHorse.Framework.Services.Tags` | `TagManager`, `ITagManager` |
+| `SteelHorse.Framework.Services.Database` | `DatabaseService`, `IDatabaseService` |
+| `SteelHorse.Framework.Database` | `Database`, `Database<TEntry>`, `GameDatabase` |
 | `SteelHorse.Framework.Tags` | `TagDatabase`, `TagDefinition`, `TagReference` |
 | `SteelHorse.Framework.UI` | All UI helpers |
 | `SteelHorse.Framework.Editor` | Editor-only tools, incl. `TagDatabaseEditor`, `TagDatabaseLocator`, `TagReferenceDrawer` |
