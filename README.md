@@ -538,6 +538,12 @@ Use **Always Active** for a panel meant to stay visible as a backdrop while thin
 
 On mobile (`PlatformUtility.IsMobilePlatform()`), `Show()` clears the EventSystem selection instead of setting focus — there's no gamepad/keyboard navigation on touch, and leaving a button auto-selected would show it highlighted despite nobody touching it. `SelectionGuard` disables itself on mobile for the same reason, so it doesn't restore the selection `Show()` just cleared.
 
+### MenuActions
+
+`Scripts/UI/MenuActions.cs`
+
+Grab-bag of plain public methods meant to be wired to a `MenuPanel`'s Button Events (or any other `UnityEvent`) from the Inspector, so a panel doesn't need a bespoke controller for a single Quit or Load Scene button. Currently exposes `QuitApplication()` and `LoadScene(string sceneName)`. Coexists with `SampleMenuController` rather than replacing it.
+
 ### MenuNavigator
 
 `Scripts/UI/MenuNavigator.cs`
