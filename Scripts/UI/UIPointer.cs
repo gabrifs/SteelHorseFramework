@@ -23,6 +23,7 @@ namespace SteelHorse.Framework.UI
         [SerializeField] private float _moveDuration = 0.15f;
 
         private Canvas _pointerCanvas;
+        private Canvas _parentCanvas;
         private RectTransform _pointerParent;
         private RectTransform _currentTarget;
 
@@ -36,6 +37,12 @@ namespace SteelHorse.Framework.UI
 
             _pointerCanvas = GetComponent<Canvas>();
             _pointerParent = _pointer.parent as RectTransform;
+
+            // Lives under a panel's own Canvas now that multiple UIPointers can
+            // coexist in a scene, so skip the (parent-excluded, since RequireComponent
+            // guarantees one on this GameObject) per-frame work below entirely once
+            // MenuPanel.Hide disables that canvas.
+            _parentCanvas = transform.parent != null ? transform.parent.GetComponentInParent<Canvas>() : null;
         }
 
         private IEnumerator Start()
@@ -63,6 +70,13 @@ namespace SteelHorse.Framework.UI
 
         private void Update()
         {
+            if (_parentCanvas != null && !_parentCanvas.enabled)
+            {
+                if (_pointer.gameObject.activeSelf)
+                    _pointer.gameObject.SetActive(false);
+                return;
+            }
+
             if (EventSystem.current == null) return;
             var selected = EventSystem.current.currentSelectedGameObject;
 
