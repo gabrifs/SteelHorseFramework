@@ -27,6 +27,7 @@ Steel Horse Framework/
     │   └── TagReferenceDrawer.cs
     ├── Database/
     │   ├── Database.cs
+    │   ├── DatabaseEntry.cs
     │   └── GameDatabase.cs
     ├── Tags/
     │   ├── TagDatabase.cs
@@ -433,7 +434,23 @@ A generic way to register and resolve game-wide data collections ("databases") a
 
 `Scripts/Database/Database.cs`
 
-`Database` is a non-generic abstract marker — every concrete database asset type derives from it (directly or via `Database<TEntry>`), which is what lets `GameDatabase` hold a single heterogeneous list of them. `Database<TEntry>` adds the actual list: `[SerializeField] protected List<TEntry> _entries`, exposed as `IReadOnlyList<TEntry> Entries`. A concrete database is a small subclass supplying `TEntry` and its own `[CreateAssetMenu]`, e.g. `TagDatabase : Database<TagDefinition>`. `TEntry` can be a plain `[Serializable]` class embedded directly in the list (like `TagDefinition`) or a `ScriptableObject` asset reference (like a game-specific `PortraitData`) — both serialize fine through the same `List<TEntry>` field.
+`Database` is a non-generic abstract marker — every concrete database asset type derives from it (directly or via `Database<TEntry>`), which is what lets `GameDatabase` hold a single heterogeneous list of them. `Database<TEntry>` adds the actual list: `[SerializeField] protected List<TEntry> _entries`, exposed as `IReadOnlyList<TEntry> Entries`. A concrete database is a small subclass supplying `TEntry` and its own `[CreateAssetMenu]`, e.g. `FactionsDatabase : Database<FactionData>`. `TEntry` can be a plain `[Serializable]` class embedded directly in the list or a `ScriptableObject` asset reference — both serialize fine through the same `List<TEntry>` field.
+
+### DatabaseEntry (ScriptableObject) / KeyedDatabase\<TEntry\>
+
+`Scripts/Database/DatabaseEntry.cs`, `Scripts/Database/Database.cs`
+
+`DatabaseEntry` is an abstract `ScriptableObject` base carrying one field: a hand-authored `string Key` ("Stable identifier used to reference this entry in code and other assets. Must be unique."). `KeyedDatabase<TEntry> : Database<TEntry> where TEntry : DatabaseEntry` builds on that constraint to provide, once, what every keyed database needs: `TryGetByKey(string key, out TEntry entry)` and an editor-only `OnValidate` that warns on duplicate keys (the same "list '+' button duplicates the previous reference" hazard `TagDatabase` originally guarded against on its own). Use `KeyedDatabase<TEntry>` instead of `Database<TEntry>` whenever `TEntry` is `ScriptableObject`-based and needs code/asset-referenceable identity — a concrete subclass then shrinks to just its `[CreateAssetMenu]` and a friendly `IReadOnlyList<TEntry>` alias property:
+
+```csharp
+[CreateAssetMenu(menuName = "Steel Horse/Factions/Factions Database", fileName = "Factions Database")]
+public class FactionsDatabase : KeyedDatabase<FactionData>
+{
+    public IReadOnlyList<FactionData> Factions { get { return Entries; } }
+}
+```
+
+`Database<TEntry>` itself stays unconstrained on purpose, so it can still back a database of plain `[Serializable]` entries that have no `Key` at all — `KeyedDatabase<TEntry>` is an opt-in specialization, not a requirement.
 
 ### GameDatabase (ScriptableObject)
 
@@ -476,7 +493,7 @@ A designer-authorable tagging system: define each tag as its own asset, add it t
 [CreateAssetMenu(menuName = "Steel Horse/Tags/Tag Definition", fileName = "New Tag Definition")]
 ```
 
-One tag = one asset: a plain-string `Key` (the stable identifier used in code and for equality — must be unique), a `LocalizedString DisplayName` (the player-facing text, e.g. for a filter UI), and a `Color` (e.g. for tinting chips/labels in UI — one canonical color per tag, defined here rather than per-usage). `Key` is intentionally not localized, since identity must stay stable across languages. Entries in a `TagDatabase`'s list are references to these assets, not embedded data — so an unassigned list slot is `null`; `TagDatabase`/`TagReferenceDrawer` both guard against that.
+One tag = one asset, deriving from `DatabaseEntry` (see [Database System](#database-system)) for its `Key` (the stable identifier used in code and for equality — must be unique), plus a `LocalizedString DisplayName` (the player-facing text, e.g. for a filter UI) and a `Color` (e.g. for tinting chips/labels in UI — one canonical color per tag, defined here rather than per-usage). `Key` is intentionally not localized, since identity must stay stable across languages. Entries in a `TagDatabase`'s list are references to these assets, not embedded data — so an unassigned list slot is `null`; `TagDatabase`/`TagReferenceDrawer` both guard against that.
 
 ### TagDatabase (ScriptableObject)
 
@@ -484,10 +501,10 @@ One tag = one asset: a plain-string `Key` (the stable identifier used in code an
 
 ```csharp
 [CreateAssetMenu(menuName = "Steel Horse/Tags/Tag Database", fileName = "Tag Database")]
-public class TagDatabase : Database<TagDefinition>
+public class TagDatabase : KeyedDatabase<TagDefinition>
 ```
 
-Holds a list of `TagDefinition` asset references for a project (via the [Database System](#database-system)'s `Database<TEntry>` base). Multiple `TagDatabase` assets can exist (testing, backups, etc.), but only one is used at a time — see **Setting the active database** below. Logs a warning (`OnValidate`) if two entries share the same key, which can happen because Unity's list "+" button duplicates the previous element's reference.
+Holds a list of `TagDefinition` asset references for a project (via the [Database System](#database-system)'s `KeyedDatabase<TEntry>` base, which is where the duplicate-key `OnValidate` warning and the key lookup now live). Multiple `TagDatabase` assets can exist (testing, backups, etc.), but only one is used at a time — see **Setting the active database** below. `TryGetTag(string, out TagDefinition)` and `TryGetTag(TagReference, out TagDefinition)` are thin, Tag-flavored wrappers over the inherited `TryGetByKey`, kept for call-site readability.
 
 ```csharp
 if (myDatabase.TryGetTag("Enemy", out TagDefinition tag))
@@ -766,7 +783,7 @@ Adds **Tools → Steel Horse → Open Persistent Data Path** to the Unity menu b
 | `SteelHorse.Framework.Services.SceneLoading` | Scene loader classes, incl. `SkippableSceneLoader` |
 | `SteelHorse.Framework.Services.Save` | `LocalSaveService`, `SaveEncryption` |
 | `SteelHorse.Framework.Services.Database` | `DatabaseService`, `IDatabaseService` |
-| `SteelHorse.Framework.Database` | `Database`, `Database<TEntry>`, `GameDatabase` |
+| `SteelHorse.Framework.Database` | `Database`, `Database<TEntry>`, `DatabaseEntry`, `KeyedDatabase<TEntry>`, `GameDatabase` |
 | `SteelHorse.Framework.Tags` | `TagDatabase`, `TagDefinition`, `TagReference` |
 | `SteelHorse.Framework.UI` | All UI helpers |
 | `SteelHorse.Framework.Editor` | Editor-only tools, incl. `TagDatabaseEditor`, `TagDatabaseLocator`, `TagReferenceDrawer` |
