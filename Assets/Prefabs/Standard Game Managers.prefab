@@ -828,6 +828,7 @@ Transform:
   - {fileID: 2656123185927096932}
   - {fileID: 4947552553456667678}
   - {fileID: 1105676891538770664}
+  - {fileID: 4626835419918692385}
   m_Father: {fileID: 5718685428048935870}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &2119184225434152345
@@ -842,6 +843,64 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4a7c889a57b4744428926b223cbe1773, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SteelHorse.Framework.Services.ServiceController
+--- !u!1 &8616430400859869233
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4626835419918692385}
+  - component: {fileID: 875111160418282971}
+  m_Layer: 0
+  m_Name: Options Service
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4626835419918692385
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8616430400859869233}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1118498606182018059}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &875111160418282971
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8616430400859869233}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 11db4ed02bf03f34c94d6dffa15d21c7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SteelHorse.Framework.Services.Options.OptionsService
+  _mixer: {fileID: 24100000, guid: 341ef68d927e1a847a9fd3ab07d01f42, type: 2}
+  _volumeChannels:
+  - Name: Master
+    MixerParameter: MasterVolume
+    PrefsKey: MasterVolume
+  - Name: Sfx
+    MixerParameter: SfxVolume
+    PrefsKey: SfxVolume
+  - Name: Music
+    MixerParameter: MusicVolume
+    PrefsKey: MusicVolume
+  _qualityPrefsKey: QualityLevel
+  _resolutionOptions: {fileID: 11400000, guid: ee378e7d93fa1454596ec53d0f8e6974, type: 2}
+  _resolutionPrefsKey: ResolutionIndex
 --- !u!1001 &5808283139508821464
 PrefabInstance:
   m_ObjectHideFlags: 0

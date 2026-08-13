@@ -69,6 +69,9 @@ Steel Horse Framework/
         ├── Input/
         │   ├── IInputDeviceService.cs
         │   └── InputDeviceService.cs
+        ├── Options/
+        │   ├── IOptionsService.cs
+        │   └── OptionsService.cs
         └── UI/
             ├── DisplayOnPlatform.cs
             ├── LanguageSwitcher.cs
@@ -114,6 +117,7 @@ GameManagers.Instance.Services.SceneLoaderService.LoadScene("GameScene");
 GameManagers.Instance.Services.ApiClientService.GetAsync("/api/v1/status");
 GameManagers.Instance.Services.DatabaseService.Get<TagDatabase>().TryGetTag("Enemy", out TagDefinition tag);
 GameManagers.Instance.Services.InputDeviceService.CurrentMode; // InputDeviceMode.Pointer or .Navigation
+GameManagers.Instance.Services.OptionsService.SetVolume("Master", 0.8f);
 ```
 
 The prefab hierarchy is:
@@ -128,7 +132,8 @@ Standard Game Managers  (GameManagers)
     ├── SceneLoader     (SceneLoader)
     ├── Api Client      (ApiClient)
     ├── Database Service (DatabaseService)
-    └── Input Device Service (InputDeviceService)
+    ├── Input Device Service (InputDeviceService)
+    └── Options Service (OptionsService)
 ```
 
 Game-specific singletons (e.g. a session or save-data service) should **not** be added to this prefab's own scripts — instead attach them as sibling `MonoBehaviour`s on the `Standard Game Managers` root GameObject. They inherit `DontDestroyOnLoad` from the root and manage their own `Instance` references, without coupling the Framework to game code.
@@ -159,7 +164,7 @@ Reads `UnityEngine.Device.Application.platform`, not plain `UnityEngine.Applicat
 
 `Scripts/Services/ServiceLocator.cs`
 
-Resolves `IAudioManager`, `IMusicPlayer`, `ISceneLoader`, `IApiClient`, `IDatabaseService`, and `IInputDeviceService` from child GameObjects via `GetComponentInChildren`. You can swap implementations without touching any caller code — just replace the component on the prefab.
+Resolves `IAudioManager`, `IMusicPlayer`, `ISceneLoader`, `IApiClient`, `IDatabaseService`, `IInputDeviceService`, and `IOptionsService` from child GameObjects via `GetComponentInChildren`. You can swap implementations without touching any caller code — just replace the component on the prefab.
 
 Every service interface exposes a `Setup()` method, which `ServiceLocator.Setup()` calls explicitly right after resolving each service — deterministically, exactly once, only on the surviving singleton (see [GameManagers](#gamemanagers)). Services must not use `Awake`/`Start` for their own initialization: the `Standard Game Managers` prefab is placed in every scene as a duplicate-protect singleton, so `Awake`/`Start` on a service component can still run on a short-lived duplicate before `GameManagers` destroys it — `Setup()` sidesteps that entirely by only ever running through the one `ServiceLocator.Setup()` call.
 
@@ -553,6 +558,51 @@ GameManagers.Instance.Services.InputDeviceService.ModeChanged += mode => { /* ..
 
 ---
 
+## Options System
+
+### OptionsService
+
+`Scripts/Services/Options/OptionsService.cs`, `Scripts/Services/Options/IOptionsService.cs`
+
+Owns every player-facing setting's persistence (`PlayerPrefs`) and system application (`AudioMixer`/`QualitySettings`/`Screen`), applying all of them once from `Setup` — called from `GameManagers.Awake` like every other service, so settings take effect on boot whether or not the player ever opens an options screen. `PlayerOptionsController` (see below) is the UI-only counterpart: it never touches `PlayerPrefs` or these systems directly, it only reads/writes through this service.
+
+| Inspector Field | Description |
+| --- | --- |
+| Mixer | Target `AudioMixer` |
+| Volume Channels | Array of `{ Name, MixerParameter, PrefsKey }` — `Name` is an arbitrary lookup key `PlayerOptionsController` references (e.g. `"Master"`), decoupled from the actual mixer parameter/prefs key so the UI never needs to know either |
+| Quality Prefs Key | `PlayerPrefs` key for the saved quality index (default `"QualityLevel"`) |
+| Resolution Options | `ResolutionOptions` asset — the curated list of selectable resolutions |
+| Resolution Prefs Key | `PlayerPrefs` key for the saved resolution index (default `"ResolutionIndex"`) |
+
+```csharp
+GameManagers.Instance.Services.OptionsService.GetVolume("Master"); // 0..1 linear
+GameManagers.Instance.Services.OptionsService.SetVolume("Master", 0.8f);
+GameManagers.Instance.Services.OptionsService.SetQuality(2);
+GameManagers.Instance.Services.OptionsService.SetResolution(0);
+GameManagers.Instance.Services.OptionsService.ResolutionChanged += (width, height) => { /* ... */ };
+```
+
+**Volume timing:** applying the real saved volume as early as `Setup` (itself called from `GameManagers.Awake`) risks `AudioMixer.SetFloat` calls not being reliably audible yet — the same category of AudioMixer init-order quirk `MusicChannel`'s constructor works around by priming with silence instead of a real value (see its comment). `OptionsService` works around it by applying volumes one frame later via a coroutine started from `Setup` — safe to do there specifically, since `Setup` only ever runs once `GameManagers.Awake` has confirmed the object is the surviving singleton, not a short-lived duplicate. Quality and resolution have no such quirk and apply immediately.
+
+**Resolution behavior:** the dropdown's options come from the assigned `ResolutionOptions` asset, filtered down to entries that actually fit the player's monitor (any curated preset wider or taller than the monitor's native resolution is dropped — e.g. a 2560x1440 preset is excluded on a 1920x1080 display), plus the monitor's native resolution appended automatically if it isn't already one of the remaining entries — so the player can always run at their native resolution, and always has at least that one option even if every curated preset gets filtered out. Both the filter and that fallback entry are read from `Display.main.systemWidth`/`systemHeight` — the OS-reported native resolution, not `Screen.currentResolution`, which reflects the game's own current display mode instead and would drift from the real monitor ceiling once the game applies a resolution in exclusive fullscreen. On first run (nothing saved to `PlayerPrefs` yet), that monitor resolution is adopted as the default and immediately persisted, rather than falling back to whatever the first curated entry happens to be.
+
+**`ResolutionChanged`** only fires from `SetResolution` (a runtime change) — not during `Setup`'s boot-time apply, since that runs from `GameManagers.Awake`, before any other object's `OnEnable` has had a chance to subscribe. Read `CurrentResolution` directly for the initial value instead:
+
+```csharp
+private void OnEnable()
+{
+    var service = GameManagers.Instance.Services.OptionsService;
+    service.ResolutionChanged += OnResolutionChanged;
+    OnResolutionChanged(service.CurrentResolution.x, service.CurrentResolution.y); // initial sync
+}
+
+private void OnDisable() => GameManagers.Instance.Services.OptionsService.ResolutionChanged -= OnResolutionChanged;
+
+private void OnResolutionChanged(int width, int height) { /* ... */ }
+```
+
+---
+
 ## UI Helpers
 
 ### MenuPanel
@@ -644,30 +694,13 @@ PauseGame.IsPauseBlocked = true;
 
 `Scripts/UI/PlayerOptionsController.cs`
 
-Wires a settings screen's Master/SFX/Music volume sliders to an `AudioMixer` (via exposed float parameters, linear-to-decibel converted), a quality-level dropdown to `QualitySettings`, and a resolution dropdown to `Screen.SetResolution`. All three are persisted to `PlayerPrefs` and restored/applied in `Start` (not `Awake` — `AudioMixer.SetFloat` calls made that early aren't reliably audible yet). Each group is independently optional: leaving a field unwired (e.g. no quality dropdown, no resolution dropdown) just skips that `Init*` call instead of erroring, so a game can opt out of any individual control.
+Pure UI layer over [`OptionsService`](#optionsservice) (see above): wires a settings screen's Master/SFX/Music volume sliders, a quality-level dropdown, and a resolution dropdown, reading initial values from the service and forwarding player interaction back into it. Never touches `PlayerPrefs`, `AudioMixer`, `QualitySettings`, or `Screen` directly — that's all `OptionsService`'s job. Each group is independently optional: leaving a field unwired (e.g. no quality dropdown, no resolution dropdown) just skips that `Init*` call instead of erroring, so a game can opt out of any individual control.
 
 | Inspector Field | Description |
 | --- | --- |
-| Mixer | Target `AudioMixer` |
-| Master/SFX/Music Volume | Each: a `Slider`, the mixer's exposed parameter name, and a `PlayerPrefs` key |
+| Master/SFX/Music Volume | Each: a `Slider` and a Channel Name matching one of `OptionsService`'s configured volume channels |
 | Quality Dropdown | `TMP_Dropdown` populated from `QualitySettings.names` |
-| Quality Prefs Key | `PlayerPrefs` key for the saved quality index (default `"QualityLevel"`) |
-| Resolution Dropdown | `TMP_Dropdown` populated from `Resolution Options` |
-| Resolution Options | `ResolutionOptions` asset — the curated list of selectable resolutions |
-| Resolution Prefs Key | `PlayerPrefs` key for the saved resolution index (default `"ResolutionIndex"`) |
-
-**Resolution behavior:** the dropdown's options come from the assigned `ResolutionOptions` asset, filtered down to entries that actually fit the player's monitor (any curated preset wider or taller than the monitor's native resolution is dropped — e.g. a 2560x1440 preset is excluded on a 1920x1080 display), plus the monitor's native resolution appended automatically if it isn't already one of the remaining entries — so the player can always run at their native resolution, and always has at least that one option even if every curated preset gets filtered out. Both the filter and that fallback entry are read from `Display.main.systemWidth`/`systemHeight` — the OS-reported native resolution, not `Screen.currentResolution`, which reflects the game's own current display mode instead and would drift from the real monitor ceiling once the game applies a resolution in exclusive fullscreen. On first run (nothing saved to `PlayerPrefs` yet), that monitor resolution is adopted as the default and immediately persisted, rather than falling back to whatever the first curated entry happens to be.
-
-Unity has no built-in event for resolution changes, so `PlayerOptionsController` exposes a static one that anything can subscribe to instead of polling `Screen.width`/`Screen.height`:
-
-```csharp
-private void OnEnable() => PlayerOptionsController.ResolutionChanged += OnResolutionChanged;
-private void OnDisable() => PlayerOptionsController.ResolutionChanged -= OnResolutionChanged;
-
-private void OnResolutionChanged(int width, int height) { /* ... */ }
-```
-
-It fires once during `PlayerOptionsController`'s own setup (restoring a saved resolution, or adopting the monitor's native one on first run) — that call doubles as the initial value, so subscribers don't need a separate first-sync path.
+| Resolution Dropdown | `TMP_Dropdown` populated from `OptionsService.Resolutions` |
 
 ### ResolutionOptions / ResolutionSetting
 
@@ -789,7 +822,7 @@ Adds **Tools → Steel Horse → Open Persistent Data Path** to the Unity menu b
 | --- | --- |
 | Unity Localization (`com.unity.localization`) | `LanguageSwitcher`, `TagDefinition` |
 | TextMeshPro (`com.unity.textmeshpro`) | `LoadingTextAnimator`, `VersionLabel` |
-| Unity Audio Mixer | `AudioManager`, `SfxCue`, `PlayerOptionsController`, `MusicPlayer`, `MusicPlaylist` |
+| Unity Audio Mixer | `AudioManager`, `SfxCue`, `OptionsService`, `MusicPlayer`, `MusicPlaylist` |
 | Unity Input System (`com.unity.inputsystem`) | `MenuNavigator`, `PauseGame`, `SkippableSceneLoader`, `InputDeviceService`, `UIPointer` (Hide Pointer For Mouse Input) |
 | DOTween (`com.demigiant.dotween`) | `UIPointer` |
 
@@ -809,6 +842,7 @@ Adds **Tools → Steel Horse → Open Persistent Data Path** to the Unity menu b
 | `SteelHorse.Framework.Services.Save` | `LocalSaveService`, `SaveEncryption` |
 | `SteelHorse.Framework.Services.Database` | `DatabaseService`, `IDatabaseService` |
 | `SteelHorse.Framework.Services.Input` | `InputDeviceService`, `IInputDeviceService`, `InputDeviceMode` |
+| `SteelHorse.Framework.Services.Options` | `OptionsService`, `IOptionsService` |
 | `SteelHorse.Framework.Database` | `Database`, `Database<TEntry>`, `DatabaseEntry`, `KeyedDatabase<TEntry>`, `GameDatabase` |
 | `SteelHorse.Framework.Tags` | `TagDatabase`, `TagDefinition`, `TagReference` |
 | `SteelHorse.Framework.UI` | All UI helpers |
