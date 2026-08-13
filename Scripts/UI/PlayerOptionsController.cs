@@ -137,7 +137,8 @@ namespace SteelHorse.Framework.UI
             if (_resolutionDropdown == null || _resolutionOptions == null)
                 return;
 
-            _resolutions = BuildResolutionsWithMonitorOption(_resolutionOptions.Resolutions, out int monitorIndex);
+            var nativeMonitorResolution = new Vector2Int(Display.main.systemWidth, Display.main.systemHeight);
+            _resolutions = BuildResolutionsWithMonitorOption(_resolutionOptions.Resolutions, nativeMonitorResolution, out int monitorIndex);
 
             _resolutionDropdown.ClearOptions();
             _resolutionDropdown.AddOptions(BuildResolutionLabels(_resolutions));
@@ -188,28 +189,35 @@ namespace SteelHorse.Framework.UI
             return labels;
         }
 
-        // Appends the player's monitor resolution as an extra option when it isn't
-        // already one of the curated entries, so they can always run at their native
-        // resolution instead of being limited to whatever presets were configured.
-        private static ResolutionSetting[] BuildResolutionsWithMonitorOption(ResolutionSetting[] configured, out int monitorIndex)
+        // Drops any curated preset wider or taller than the player's native monitor
+        // resolution - selecting an unsupported mode (e.g. 2560x1440 on a 1920x1080
+        // display) would otherwise be possible. Then appends that native resolution as an
+        // extra option when it isn't already one of the remaining entries, so they can
+        // always run at their native resolution instead of being limited to whatever
+        // presets fit, and still have at least one option if every preset got filtered
+        // out. Both comparisons key off the same nativeMonitorResolution value so neither
+        // can drift from the other.
+        private static ResolutionSetting[] BuildResolutionsWithMonitorOption(ResolutionSetting[] configured, Vector2Int nativeMonitorResolution, out int monitorIndex)
         {
-            var monitor = Screen.currentResolution;
-
-            for (int i = 0; i < configured.Length; i++)
+            var fitting = new List<ResolutionSetting>(configured.Length);
+            foreach (var setting in configured)
             {
-                if ((int)configured[i].Resolution.x == monitor.width && (int)configured[i].Resolution.y == monitor.height)
+                if ((int)setting.Resolution.x <= nativeMonitorResolution.x && (int)setting.Resolution.y <= nativeMonitorResolution.y)
+                    fitting.Add(setting);
+            }
+
+            for (int i = 0; i < fitting.Count; i++)
+            {
+                if ((int)fitting[i].Resolution.x == nativeMonitorResolution.x && (int)fitting[i].Resolution.y == nativeMonitorResolution.y)
                 {
                     monitorIndex = i;
-                    return configured;
+                    return fitting.ToArray();
                 }
             }
 
-            var withMonitor = new ResolutionSetting[configured.Length + 1];
-            configured.CopyTo(withMonitor, 0);
-            withMonitor[configured.Length] = new ResolutionSetting(new Vector2(monitor.width, monitor.height));
-
-            monitorIndex = configured.Length;
-            return withMonitor;
+            monitorIndex = fitting.Count;
+            fitting.Add(new ResolutionSetting(new Vector2(nativeMonitorResolution.x, nativeMonitorResolution.y)));
+            return fitting.ToArray();
         }
     }
 }
