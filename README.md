@@ -66,6 +66,9 @@ Steel Horse Framework/
         ├── Database/
         │   ├── IDatabaseService.cs
         │   └── DatabaseService.cs
+        ├── Input/
+        │   ├── IInputDeviceService.cs
+        │   └── InputDeviceService.cs
         └── UI/
             ├── DisplayOnPlatform.cs
             ├── LanguageSwitcher.cs
@@ -110,6 +113,7 @@ GameManagers.Instance.Services.MusicPlayerService.Play(playlist);
 GameManagers.Instance.Services.SceneLoaderService.LoadScene("GameScene");
 GameManagers.Instance.Services.ApiClientService.GetAsync("/api/v1/status");
 GameManagers.Instance.Services.DatabaseService.Get<TagDatabase>().TryGetTag("Enemy", out TagDefinition tag);
+GameManagers.Instance.Services.InputDeviceService.CurrentMode; // InputDeviceMode.Pointer or .Navigation
 ```
 
 The prefab hierarchy is:
@@ -123,7 +127,8 @@ Standard Game Managers  (GameManagers)
     ├── MusicPlayer     (MusicPlayer)
     ├── SceneLoader     (SceneLoader)
     ├── Api Client      (ApiClient)
-    └── Database Service (DatabaseService)
+    ├── Database Service (DatabaseService)
+    └── Input Device Service (InputDeviceService)
 ```
 
 Game-specific singletons (e.g. a session or save-data service) should **not** be added to this prefab's own scripts — instead attach them as sibling `MonoBehaviour`s on the `Standard Game Managers` root GameObject. They inherit `DontDestroyOnLoad` from the root and manage their own `Instance` references, without coupling the Framework to game code.
@@ -154,7 +159,7 @@ Reads `UnityEngine.Device.Application.platform`, not plain `UnityEngine.Applicat
 
 `Scripts/Services/ServiceLocator.cs`
 
-Resolves `IAudioManager`, `IMusicPlayer`, `ISceneLoader`, `IApiClient`, and `IDatabaseService` from child GameObjects via `GetComponentInChildren`. You can swap implementations without touching any caller code — just replace the component on the prefab.
+Resolves `IAudioManager`, `IMusicPlayer`, `ISceneLoader`, `IApiClient`, `IDatabaseService`, and `IInputDeviceService` from child GameObjects via `GetComponentInChildren`. You can swap implementations without touching any caller code — just replace the component on the prefab.
 
 Every service interface exposes a `Setup()` method, which `ServiceLocator.Setup()` calls explicitly right after resolving each service — deterministically, exactly once, only on the surviving singleton (see [GameManagers](#gamemanagers)). Services must not use `Awake`/`Start` for their own initialization: the `Standard Game Managers` prefab is placed in every scene as a duplicate-protect singleton, so `Awake`/`Start` on a service component can still run on a short-lived duplicate before `GameManagers` destroys it — `Setup()` sidesteps that entirely by only ever running through the one `ServiceLocator.Setup()` call.
 
@@ -531,6 +536,23 @@ Tag dropdowns read from a single "active" `TagDatabase`, tracked via `EditorBuil
 
 ---
 
+## Input Device Detection
+
+### InputDeviceService
+
+`Scripts/Services/Input/InputDeviceService.cs`, `Scripts/Services/Input/IInputDeviceService.cs`
+
+Tracks whether the player is currently driving the UI with the mouse (`InputDeviceMode.Pointer`) or with keyboard/gamepad (`InputDeviceMode.Navigation`), switching correctly at runtime with no scene reload required. Classifies input at the raw **Input System** device level (`Mouse`/`Keyboard`/`Gamepad`, via `InputSystem.onEvent`) rather than reading a scene's `InputSystemUIInputModule` action references — so it works no matter which `InputActionAsset` a scene's `EventSystem` is configured with, and keeps tracking correctly across scene loads since it lives on the persistent `GameManagers` singleton rather than a per-scene `EventSystem`.
+
+```csharp
+GameManagers.Instance.Services.InputDeviceService.CurrentMode; // InputDeviceMode.Pointer or .Navigation
+GameManagers.Instance.Services.InputDeviceService.ModeChanged += mode => { /* ... */ };
+```
+
+`UIPointer` (see below) is the primary consumer — it uses this to hide/show itself and the OS cursor in tandem.
+
+---
+
 ## UI Helpers
 
 ### MenuPanel
@@ -718,6 +740,8 @@ Drop on any GameObject that stays active throughout the menu lifetime. Every `Up
 
 Drop on a root GameObject in any scene that should hide and lock the OS cursor. Re-locks on application focus restore so the cursor does not stay unlocked after alt-tab. Does nothing on mobile (`PlatformUtility.IsMobilePlatform()`) — there's no OS cursor to lock there, and skipping it keeps testing in the Editor's Device Simulator unaffected.
 
+Only ever touches `Cursor.lockState`, never `Cursor.visible` — it's a pure lock-to-window utility, independent from `UIPointer`'s mouse/keyboard-driven cursor **visibility** toggling below. The two can be combined freely.
+
 ### UIPointer
 
 `Scripts/UI/UIPointer.cs`
@@ -728,8 +752,9 @@ Animates a `RectTransform` "cursor" sprite that smoothly follows the currently s
 | --- | --- |
 | Pointer | `RectTransform` of the cursor graphic |
 | Move Duration | Tween duration in seconds (default `0.15`) |
+| Hide Pointer For Mouse Input | When enabled (default), reads [`InputDeviceService`](#input-device-detection): while the player is using the mouse, this Pointer is hidden and the OS cursor (`Cursor.visible`) is shown; while navigating via keyboard/gamepad, the OS cursor is hidden and this Pointer takes over. Disable to keep the previous always-on behavior. |
 
-Requires **DOTween** (`com.demigiant.dotween`).
+Requires **DOTween** (`com.demigiant.dotween`) and, for the input-device toggle, **Unity Input System** (`com.unity.inputsystem`).
 
 ### LanguageSwitcher
 
@@ -765,7 +790,7 @@ Adds **Tools → Steel Horse → Open Persistent Data Path** to the Unity menu b
 | Unity Localization (`com.unity.localization`) | `LanguageSwitcher`, `TagDefinition` |
 | TextMeshPro (`com.unity.textmeshpro`) | `LoadingTextAnimator`, `VersionLabel` |
 | Unity Audio Mixer | `AudioManager`, `SfxCue`, `PlayerOptionsController`, `MusicPlayer`, `MusicPlaylist` |
-| Unity Input System (`com.unity.inputsystem`) | `MenuNavigator`, `PauseGame`, `SkippableSceneLoader` |
+| Unity Input System (`com.unity.inputsystem`) | `MenuNavigator`, `PauseGame`, `SkippableSceneLoader`, `InputDeviceService`, `UIPointer` (Hide Pointer For Mouse Input) |
 | DOTween (`com.demigiant.dotween`) | `UIPointer` |
 
 `ApiClient` only depends on `UnityEngine.Networking` (`UnityWebRequest`), which ships with Unity — no additional package required.
@@ -783,6 +808,7 @@ Adds **Tools → Steel Horse → Open Persistent Data Path** to the Unity menu b
 | `SteelHorse.Framework.Services.SceneLoading` | Scene loader classes, incl. `SkippableSceneLoader` |
 | `SteelHorse.Framework.Services.Save` | `LocalSaveService`, `SaveEncryption` |
 | `SteelHorse.Framework.Services.Database` | `DatabaseService`, `IDatabaseService` |
+| `SteelHorse.Framework.Services.Input` | `InputDeviceService`, `IInputDeviceService`, `InputDeviceMode` |
 | `SteelHorse.Framework.Database` | `Database`, `Database<TEntry>`, `DatabaseEntry`, `KeyedDatabase<TEntry>`, `GameDatabase` |
 | `SteelHorse.Framework.Tags` | `TagDatabase`, `TagDefinition`, `TagReference` |
 | `SteelHorse.Framework.UI` | All UI helpers |
