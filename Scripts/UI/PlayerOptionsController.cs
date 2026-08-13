@@ -43,19 +43,6 @@ namespace SteelHorse.Framework.UI
         // persisted to PlayerPrefs and what the dropdown's onValueChanged reports.
         private ResolutionSetting[] _resolutions;
 
-        // Captured in Awake, before Start applies any saved resolution via
-        // Screen.SetResolution: in exclusive fullscreen, that call changes the OS-level
-        // display mode, so Screen.currentResolution would otherwise reflect whatever
-        // resolution we last applied instead of the monitor's actual native one -
-        // filtering the dropdown against a live read could shrink over repeated
-        // launches instead of staying pinned to the real hardware ceiling.
-        private Resolution _nativeMonitorResolution;
-
-        private void Awake()
-        {
-            _nativeMonitorResolution = Screen.currentResolution;
-        }
-
         // Resolved in Start rather than Awake: AudioMixer.SetFloat calls made this
         // early aren't reliably audible yet (same category of AudioMixer init-order
         // quirk MusicChannel works around — see its constructor comment).
@@ -150,7 +137,8 @@ namespace SteelHorse.Framework.UI
             if (_resolutionDropdown == null || _resolutionOptions == null)
                 return;
 
-            _resolutions = BuildResolutionsWithMonitorOption(_resolutionOptions.Resolutions, _nativeMonitorResolution, out int monitorIndex);
+            var nativeMonitorResolution = new Vector2Int(Display.main.systemWidth, Display.main.systemHeight);
+            _resolutions = BuildResolutionsWithMonitorOption(_resolutionOptions.Resolutions, nativeMonitorResolution, out int monitorIndex);
 
             _resolutionDropdown.ClearOptions();
             _resolutionDropdown.AddOptions(BuildResolutionLabels(_resolutions));
@@ -201,24 +189,26 @@ namespace SteelHorse.Framework.UI
             return labels;
         }
 
-        // Drops any curated preset wider or taller than the player's actual monitor -
-        // selecting an unsupported mode (e.g. 2560x1440 on a 1920x1080 display) would
-        // otherwise be possible. Then appends the player's monitor resolution as an extra
-        // option when it isn't already one of the remaining entries, so they can always
-        // run at their native resolution instead of being limited to whatever presets
-        // fit, and still have at least one option if every preset got filtered out.
-        private static ResolutionSetting[] BuildResolutionsWithMonitorOption(ResolutionSetting[] configured, Resolution monitor, out int monitorIndex)
+        // Drops any curated preset wider or taller than the player's native monitor
+        // resolution - selecting an unsupported mode (e.g. 2560x1440 on a 1920x1080
+        // display) would otherwise be possible. Then appends that native resolution as an
+        // extra option when it isn't already one of the remaining entries, so they can
+        // always run at their native resolution instead of being limited to whatever
+        // presets fit, and still have at least one option if every preset got filtered
+        // out. Both comparisons key off the same nativeMonitorResolution value so neither
+        // can drift from the other.
+        private static ResolutionSetting[] BuildResolutionsWithMonitorOption(ResolutionSetting[] configured, Vector2Int nativeMonitorResolution, out int monitorIndex)
         {
             var fitting = new List<ResolutionSetting>(configured.Length);
             foreach (var setting in configured)
             {
-                if ((int)setting.Resolution.x <= monitor.width && (int)setting.Resolution.y <= monitor.height)
+                if ((int)setting.Resolution.x <= nativeMonitorResolution.x && (int)setting.Resolution.y <= nativeMonitorResolution.y)
                     fitting.Add(setting);
             }
 
             for (int i = 0; i < fitting.Count; i++)
             {
-                if ((int)fitting[i].Resolution.x == monitor.width && (int)fitting[i].Resolution.y == monitor.height)
+                if ((int)fitting[i].Resolution.x == nativeMonitorResolution.x && (int)fitting[i].Resolution.y == nativeMonitorResolution.y)
                 {
                     monitorIndex = i;
                     return fitting.ToArray();
@@ -226,7 +216,7 @@ namespace SteelHorse.Framework.UI
             }
 
             monitorIndex = fitting.Count;
-            fitting.Add(new ResolutionSetting(new Vector2(monitor.width, monitor.height)));
+            fitting.Add(new ResolutionSetting(new Vector2(nativeMonitorResolution.x, nativeMonitorResolution.y)));
             return fitting.ToArray();
         }
     }
