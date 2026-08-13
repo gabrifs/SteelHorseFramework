@@ -656,7 +656,7 @@ Wires a settings screen's Master/SFX/Music volume sliders to an `AudioMixer` (vi
 | Resolution Options | `ResolutionOptions` asset — the curated list of selectable resolutions |
 | Resolution Prefs Key | `PlayerPrefs` key for the saved resolution index (default `"ResolutionIndex"`) |
 
-**Resolution behavior:** the dropdown's options come from the assigned `ResolutionOptions` asset, plus the player's current monitor resolution (`Screen.currentResolution`) appended automatically if it isn't already one of the curated entries — so the player can always run at their native resolution. On first run (nothing saved to `PlayerPrefs` yet), that monitor resolution is adopted as the default and immediately persisted, rather than falling back to whatever the first curated entry happens to be.
+**Resolution behavior:** the dropdown's options come from the assigned `ResolutionOptions` asset, filtered down to entries that actually fit the player's monitor (any curated preset wider or taller than `Screen.currentResolution` is dropped — e.g. a 2560x1440 preset is excluded on a 1920x1080 display), plus the player's current monitor resolution appended automatically if it isn't already one of the remaining entries — so the player can always run at their native resolution, and always has at least that one option even if every curated preset gets filtered out. On first run (nothing saved to `PlayerPrefs` yet), that monitor resolution is adopted as the default and immediately persisted, rather than falling back to whatever the first curated entry happens to be.
 
 Unity has no built-in event for resolution changes, so `PlayerOptionsController` exposes a static one that anything can subscribe to instead of polling `Screen.width`/`Screen.height`:
 

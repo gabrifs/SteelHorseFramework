@@ -188,28 +188,35 @@ namespace SteelHorse.Framework.UI
             return labels;
         }
 
-        // Appends the player's monitor resolution as an extra option when it isn't
-        // already one of the curated entries, so they can always run at their native
-        // resolution instead of being limited to whatever presets were configured.
+        // Drops any curated preset wider or taller than the player's actual monitor -
+        // selecting an unsupported mode (e.g. 2560x1440 on a 1920x1080 display) would
+        // otherwise be possible. Then appends the player's monitor resolution as an extra
+        // option when it isn't already one of the remaining entries, so they can always
+        // run at their native resolution instead of being limited to whatever presets
+        // fit, and still have at least one option if every preset got filtered out.
         private static ResolutionSetting[] BuildResolutionsWithMonitorOption(ResolutionSetting[] configured, out int monitorIndex)
         {
             var monitor = Screen.currentResolution;
 
-            for (int i = 0; i < configured.Length; i++)
+            var fitting = new List<ResolutionSetting>(configured.Length);
+            foreach (var setting in configured)
             {
-                if ((int)configured[i].Resolution.x == monitor.width && (int)configured[i].Resolution.y == monitor.height)
+                if ((int)setting.Resolution.x <= monitor.width && (int)setting.Resolution.y <= monitor.height)
+                    fitting.Add(setting);
+            }
+
+            for (int i = 0; i < fitting.Count; i++)
+            {
+                if ((int)fitting[i].Resolution.x == monitor.width && (int)fitting[i].Resolution.y == monitor.height)
                 {
                     monitorIndex = i;
-                    return configured;
+                    return fitting.ToArray();
                 }
             }
 
-            var withMonitor = new ResolutionSetting[configured.Length + 1];
-            configured.CopyTo(withMonitor, 0);
-            withMonitor[configured.Length] = new ResolutionSetting(new Vector2(monitor.width, monitor.height));
-
-            monitorIndex = configured.Length;
-            return withMonitor;
+            monitorIndex = fitting.Count;
+            fitting.Add(new ResolutionSetting(new Vector2(monitor.width, monitor.height)));
+            return fitting.ToArray();
         }
     }
 }
