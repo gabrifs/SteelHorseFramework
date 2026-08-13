@@ -3,6 +3,7 @@ using DG.Tweening;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using SteelHorse.Framework.Services.Input;
 
 namespace SteelHorse.Framework.UI
 {
@@ -21,6 +22,10 @@ namespace SteelHorse.Framework.UI
     {
         [SerializeField] private RectTransform _pointer;
         [SerializeField] private float _moveDuration = 0.15f;
+
+        [Header("Input Device")]
+        [Tooltip("While enabled, this Pointer is hidden and the OS cursor is shown when the player is using the mouse; the OS cursor is hidden and this Pointer is shown when navigating via keyboard/gamepad.")]
+        [SerializeField] private bool _hidePointerForMouseInput = true;
 
         private Canvas _pointerCanvas;
         private Canvas _parentCanvas;
@@ -60,7 +65,7 @@ namespace SteelHorse.Framework.UI
 
             yield return null; // wait one frame for Canvas layout to resolve sizes
 
-            if (_currentTarget != null && TryGetScreenRect(_currentTarget, out var center, out var size))
+            if (_currentTarget != null && !IsMouseHidingPointer() && TryGetScreenRect(_currentTarget, out var center, out var size))
             {
                 _pointer.sizeDelta = size;
                 _pointer.position = center;
@@ -76,6 +81,17 @@ namespace SteelHorse.Framework.UI
                     _pointer.gameObject.SetActive(false);
                 return;
             }
+
+            if (IsMouseHidingPointer())
+            {
+                Cursor.visible = true;
+                if (_pointer.gameObject.activeSelf)
+                    _pointer.gameObject.SetActive(false);
+                return;
+            }
+
+            if (_hidePointerForMouseInput)
+                Cursor.visible = false;
 
             if (EventSystem.current == null) return;
             var selected = EventSystem.current.currentSelectedGameObject;
@@ -106,6 +122,10 @@ namespace SteelHorse.Framework.UI
             if (_pointer.gameObject.activeSelf)
                 _pointer.gameObject.SetActive(false);
         }
+
+        private bool IsMouseHidingPointer() =>
+            _hidePointerForMouseInput &&
+            GameManagers.Instance.Services.InputDeviceService.CurrentMode == InputDeviceMode.Pointer;
 
         // Converts the target rect's world corners into screen space, then back
         // into the pointer canvas's space. Going through screen space is what

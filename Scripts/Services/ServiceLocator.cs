@@ -1,6 +1,7 @@
 using UnityEngine;
 using SteelHorse.Framework.Services.Audio;
 using SteelHorse.Framework.Services.Database;
+using SteelHorse.Framework.Services.Input;
 using SteelHorse.Framework.Services.Networking;
 using SteelHorse.Framework.Services.SceneLoading;
 
@@ -13,6 +14,7 @@ namespace SteelHorse.Framework.Services
         public ISceneLoader SceneLoaderService { get; private set; }
         public IApiClient ApiClientService { get; private set; }
         public IDatabaseService DatabaseService { get; private set; }
+        public IInputDeviceService InputDeviceService { get; private set; }
 
         public void Setup()
         {
@@ -30,6 +32,9 @@ namespace SteelHorse.Framework.Services
 
             DatabaseService = GetComponentInChildren<IDatabaseService>();
             DatabaseService.Setup();
+
+            InputDeviceService = GetComponentInChildren<IInputDeviceService>();
+            InputDeviceService.Setup();
         }
     }
 }

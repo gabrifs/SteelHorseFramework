@@ -443,6 +443,50 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 90ca768d1e84cd1408cd9a886971eea4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SteelHorse.Framework.GameManagers
+--- !u!1 &5463693270390729919
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1105676891538770664}
+  - component: {fileID: 614954913981654662}
+  m_Layer: 0
+  m_Name: Input Device Service
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1105676891538770664
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5463693270390729919}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1118498606182018059}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &614954913981654662
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5463693270390729919}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 659e616123ffc6b4d9d6363188bfec5c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SteelHorse.Framework.Services.Input.InputDeviceService
 --- !u!1 &5827361476445244779
 GameObject:
   m_ObjectHideFlags: 0
@@ -783,6 +827,7 @@ Transform:
   - {fileID: 8467208447829449240}
   - {fileID: 2656123185927096932}
   - {fileID: 4947552553456667678}
+  - {fileID: 1105676891538770664}
   m_Father: {fileID: 5718685428048935870}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &2119184225434152345
