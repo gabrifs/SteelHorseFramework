@@ -28,6 +28,14 @@ namespace SteelHorse.Framework.Services.Options
         [SerializeField] private AudioMixer _mixer;
         [SerializeField] private VolumeChannel[] _volumeChannels;
 
+        // Channels with a value set this frame but not yet pushed to the mixer - drained
+        // once per frame by Update. A dragged Slider's onValueChanged can fire many times
+        // within a single frame; AudioMixer.SetFloat has real per-call overhead (it
+        // synchronizes with the audio DSP thread), so calling it unthrottled on every tick
+        // is what was causing the reported drag/audio stutter, not the PlayerPrefs.Save()
+        // disk flush a prior fix attempt debounced instead.
+        private readonly Dictionary<string, float> _pendingVolumes = new();
+
         [Header("Quality")]
         [SerializeField] private string _qualityPrefsKey = "QualityLevel";
 
@@ -81,8 +89,8 @@ namespace SteelHorse.Framework.Services.Options
             if (!TryFindChannel(channelName, out var channel))
                 return;
 
-            ApplyVolume(channel.MixerParameter, linear);
             PlayerPrefs.SetFloat(channel.PrefsKey, linear);
+            _pendingVolumes[channelName] = linear;
 
             // PlayerPrefs.Save() is a synchronous disk flush - calling it on every tick of
             // a mouse drag (which fires this continuously) stutters the drag and the audio
@@ -91,6 +99,23 @@ namespace SteelHorse.Framework.Services.Options
             // instead of flushing to disk on every intermediate value.
             CancelInvoke(nameof(FlushPrefs));
             Invoke(nameof(FlushPrefs), 0.5f);
+        }
+
+        // Drains at most one AudioMixer.SetFloat per configured channel per frame,
+        // regardless of how many times SetVolume was called this frame - see
+        // _pendingVolumes' comment for why that matters.
+        private void Update()
+        {
+            if (_pendingVolumes.Count == 0)
+                return;
+
+            foreach (var pending in _pendingVolumes)
+            {
+                if (TryFindChannel(pending.Key, out var channel))
+                    ApplyVolume(channel.MixerParameter, pending.Value);
+            }
+
+            _pendingVolumes.Clear();
         }
 
         private void FlushPrefs() => PlayerPrefs.Save();
