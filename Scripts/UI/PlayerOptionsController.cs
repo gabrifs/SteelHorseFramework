@@ -43,6 +43,19 @@ namespace SteelHorse.Framework.UI
         // persisted to PlayerPrefs and what the dropdown's onValueChanged reports.
         private ResolutionSetting[] _resolutions;
 
+        // Captured in Awake, before Start applies any saved resolution via
+        // Screen.SetResolution: in exclusive fullscreen, that call changes the OS-level
+        // display mode, so Screen.currentResolution would otherwise reflect whatever
+        // resolution we last applied instead of the monitor's actual native one -
+        // filtering the dropdown against a live read could shrink over repeated
+        // launches instead of staying pinned to the real hardware ceiling.
+        private Resolution _nativeMonitorResolution;
+
+        private void Awake()
+        {
+            _nativeMonitorResolution = Screen.currentResolution;
+        }
+
         // Resolved in Start rather than Awake: AudioMixer.SetFloat calls made this
         // early aren't reliably audible yet (same category of AudioMixer init-order
         // quirk MusicChannel works around — see its constructor comment).
@@ -137,7 +150,7 @@ namespace SteelHorse.Framework.UI
             if (_resolutionDropdown == null || _resolutionOptions == null)
                 return;
 
-            _resolutions = BuildResolutionsWithMonitorOption(_resolutionOptions.Resolutions, out int monitorIndex);
+            _resolutions = BuildResolutionsWithMonitorOption(_resolutionOptions.Resolutions, _nativeMonitorResolution, out int monitorIndex);
 
             _resolutionDropdown.ClearOptions();
             _resolutionDropdown.AddOptions(BuildResolutionLabels(_resolutions));
@@ -194,10 +207,8 @@ namespace SteelHorse.Framework.UI
         // option when it isn't already one of the remaining entries, so they can always
         // run at their native resolution instead of being limited to whatever presets
         // fit, and still have at least one option if every preset got filtered out.
-        private static ResolutionSetting[] BuildResolutionsWithMonitorOption(ResolutionSetting[] configured, out int monitorIndex)
+        private static ResolutionSetting[] BuildResolutionsWithMonitorOption(ResolutionSetting[] configured, Resolution monitor, out int monitorIndex)
         {
-            var monitor = Screen.currentResolution;
-
             var fitting = new List<ResolutionSetting>(configured.Length);
             foreach (var setting in configured)
             {
