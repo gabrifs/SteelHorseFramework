@@ -2,50 +2,36 @@ using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.Audio;
 using UnityEngine.UI;
+using SteelHorse.Framework.Services.Options;
 
 namespace SteelHorse.Framework.UI
 {
+    // Pure UI layer over IOptionsService: wires Sliders/Dropdowns, reads initial values
+    // from the service, and forwards player interaction back into it. Never touches
+    // PlayerPrefs, AudioMixer, QualitySettings, or Screen directly - that's all
+    // OptionsService's job, applied once at Setup (see its own comment) so settings take
+    // effect on boot whether or not this screen is ever opened.
     public class PlayerOptionsController : MonoBehaviour
     {
-        // Unity has no native event for resolution changes, so anything that needs to
-        // react to the player picking a new resolution subscribes here instead of polling
-        // Screen.width/height.
-        public static event Action<int, int> ResolutionChanged;
-
         [Serializable]
         private struct VolumeEntry
         {
             public Slider Slider;
-            [Tooltip("Exposed parameter name on the AudioMixer")]
-            public string MixerParameter;
-            [Tooltip("PlayerPrefs key for persisting this value")]
-            public string PrefsKey;
+            [Tooltip("Channel name matching one of OptionsService's configured volume channels")]
+            public string ChannelName;
         }
 
-        [SerializeField] private AudioMixer _mixer;
         [SerializeField] private VolumeEntry _masterVolume;
         [SerializeField] private VolumeEntry _sfxVolume;
         [SerializeField] private VolumeEntry _musicVolume;
 
         [Header("Quality")]
         [SerializeField] private TMP_Dropdown _qualityDropdown;
-        [SerializeField] private string _qualityPrefsKey = "QualityLevel";
 
         [Header("Resolution")]
         [SerializeField] private TMP_Dropdown _resolutionDropdown;
-        [SerializeField] private ResolutionOptions _resolutionOptions;
-        [SerializeField] private string _resolutionPrefsKey = "ResolutionIndex";
 
-        // Curated options from _resolutionOptions, plus the player's monitor resolution
-        // appended if it wasn't already one of them. Indices into this array are what's
-        // persisted to PlayerPrefs and what the dropdown's onValueChanged reports.
-        private ResolutionSetting[] _resolutions;
-
-        // Resolved in Start rather than Awake: AudioMixer.SetFloat calls made this
-        // early aren't reliably audible yet (same category of AudioMixer init-order
-        // quirk MusicChannel works around — see its constructor comment).
         private void Start()
         {
             InitEntry(_masterVolume);
@@ -74,39 +60,17 @@ namespace SteelHorse.Framework.UI
                 entry.Slider.onValueChanged.RemoveAllListeners();
         }
 
-        private void OnApplicationQuit() => PlayerPrefs.Save();
-
         private void InitEntry(VolumeEntry entry)
         {
             // Lets a scene wire up only the sliders it actually has (e.g. no music
             // slider on a game with no music) instead of requiring every entry.
-            if (_mixer == null || entry.Slider == null)
+            if (entry.Slider == null || string.IsNullOrEmpty(entry.ChannelName))
                 return;
 
-            var linear = PlayerPrefs.GetFloat(entry.PrefsKey, 1f);
-            entry.Slider.SetValueWithoutNotify(linear);
-            ApplyVolume(entry.MixerParameter, linear);
-            entry.Slider.onValueChanged.AddListener(v => OnVolumeChanged(entry, v));
+            var service = GameManagers.Instance.Services.OptionsService;
+            entry.Slider.SetValueWithoutNotify(service.GetVolume(entry.ChannelName));
+            entry.Slider.onValueChanged.AddListener(v => GameManagers.Instance.Services.OptionsService.SetVolume(entry.ChannelName, v));
         }
-
-        private void OnVolumeChanged(VolumeEntry entry, float linear)
-        {
-            ApplyVolume(entry.MixerParameter, linear);
-            PlayerPrefs.SetFloat(entry.PrefsKey, linear);
-
-            // PlayerPrefs.Save() is a synchronous disk flush - calling it on every tick of
-            // a mouse drag (which fires onValueChanged continuously) stutters the drag and
-            // the audio along with it. Debounced so it still survives an abnormal exit
-            // (crash, task-kill, some mobile suspend paths) shortly after the value
-            // settles, instead of flushing to disk on every intermediate value.
-            CancelInvoke(nameof(FlushPrefs));
-            Invoke(nameof(FlushPrefs), 0.5f);
-        }
-
-        private void FlushPrefs() => PlayerPrefs.Save();
-
-        private void ApplyVolume(string parameter, float linear) =>
-            _mixer.SetFloat(parameter, linear > 0.0001f ? Mathf.Log10(linear) * 20f : -80f);
 
         private void InitQualityDropdown()
         {
@@ -117,68 +81,25 @@ namespace SteelHorse.Framework.UI
             _qualityDropdown.ClearOptions();
             _qualityDropdown.AddOptions(new List<string>(QualitySettings.names));
 
-            int saved = PlayerPrefs.GetInt(_qualityPrefsKey, QualitySettings.GetQualityLevel());
-            _qualityDropdown.SetValueWithoutNotify(saved);
-            QualitySettings.SetQualityLevel(saved, true);
-
-            _qualityDropdown.onValueChanged.AddListener(OnQualityChanged);
-        }
-
-        private void OnQualityChanged(int index)
-        {
-            QualitySettings.SetQualityLevel(index, true);
-            PlayerPrefs.SetInt(_qualityPrefsKey, index);
-            PlayerPrefs.Save();
+            var service = GameManagers.Instance.Services.OptionsService;
+            _qualityDropdown.SetValueWithoutNotify(service.CurrentQualityIndex);
+            _qualityDropdown.onValueChanged.AddListener(service.SetQuality);
         }
 
         private void InitResolutionDropdown()
         {
+            var service = GameManagers.Instance.Services.OptionsService;
+
             // Not every game exposes a resolution setting - skip entirely if unwired.
-            if (_resolutionDropdown == null || _resolutionOptions == null)
+            if (_resolutionDropdown == null || service.Resolutions == null || service.Resolutions.Length == 0)
                 return;
 
-            var nativeMonitorResolution = new Vector2Int(Display.main.systemWidth, Display.main.systemHeight);
-            _resolutions = BuildResolutionsWithMonitorOption(_resolutionOptions.Resolutions, nativeMonitorResolution, out int monitorIndex);
-
             _resolutionDropdown.ClearOptions();
-            _resolutionDropdown.AddOptions(BuildResolutionLabels(_resolutions));
+            _resolutionDropdown.AddOptions(BuildResolutionLabels(service.Resolutions));
 
-            bool hasSaved = PlayerPrefs.HasKey(_resolutionPrefsKey);
-            int index = hasSaved ? PlayerPrefs.GetInt(_resolutionPrefsKey) : monitorIndex;
-
-            if (!hasSaved)
-            {
-                // First time this runs on this machine: adopt the monitor's resolution as
-                // the default so it doesn't silently revert to it every launch.
-                PlayerPrefs.SetInt(_resolutionPrefsKey, index);
-                PlayerPrefs.Save();
-            }
-
-            _resolutionDropdown.SetValueWithoutNotify(index);
-            ApplyResolution(_resolutions[index]);
-
-            _resolutionDropdown.onValueChanged.AddListener(OnResolutionChanged);
-
-            // No separate "initial sync" anywhere else - listeners get their first
-            // value from this call.
-            NotifyResolutionChanged(_resolutions[index]);
+            _resolutionDropdown.SetValueWithoutNotify(service.CurrentResolutionIndex);
+            _resolutionDropdown.onValueChanged.AddListener(service.SetResolution);
         }
-
-        private void OnResolutionChanged(int index)
-        {
-            var setting = _resolutions[index];
-            ApplyResolution(setting);
-            PlayerPrefs.SetInt(_resolutionPrefsKey, index);
-            PlayerPrefs.Save();
-
-            NotifyResolutionChanged(setting);
-        }
-
-        private static void ApplyResolution(ResolutionSetting setting) =>
-            Screen.SetResolution((int)setting.Resolution.x, (int)setting.Resolution.y, Screen.fullScreenMode);
-
-        private static void NotifyResolutionChanged(ResolutionSetting setting) =>
-            ResolutionChanged?.Invoke((int)setting.Resolution.x, (int)setting.Resolution.y);
 
         private static List<string> BuildResolutionLabels(ResolutionSetting[] resolutions)
         {
@@ -187,37 +108,6 @@ namespace SteelHorse.Framework.UI
                 labels.Add($"{(int)setting.Resolution.x} x {(int)setting.Resolution.y}");
 
             return labels;
-        }
-
-        // Drops any curated preset wider or taller than the player's native monitor
-        // resolution - selecting an unsupported mode (e.g. 2560x1440 on a 1920x1080
-        // display) would otherwise be possible. Then appends that native resolution as an
-        // extra option when it isn't already one of the remaining entries, so they can
-        // always run at their native resolution instead of being limited to whatever
-        // presets fit, and still have at least one option if every preset got filtered
-        // out. Both comparisons key off the same nativeMonitorResolution value so neither
-        // can drift from the other.
-        private static ResolutionSetting[] BuildResolutionsWithMonitorOption(ResolutionSetting[] configured, Vector2Int nativeMonitorResolution, out int monitorIndex)
-        {
-            var fitting = new List<ResolutionSetting>(configured.Length);
-            foreach (var setting in configured)
-            {
-                if ((int)setting.Resolution.x <= nativeMonitorResolution.x && (int)setting.Resolution.y <= nativeMonitorResolution.y)
-                    fitting.Add(setting);
-            }
-
-            for (int i = 0; i < fitting.Count; i++)
-            {
-                if ((int)fitting[i].Resolution.x == nativeMonitorResolution.x && (int)fitting[i].Resolution.y == nativeMonitorResolution.y)
-                {
-                    monitorIndex = i;
-                    return fitting.ToArray();
-                }
-            }
-
-            monitorIndex = fitting.Count;
-            fitting.Add(new ResolutionSetting(new Vector2(nativeMonitorResolution.x, nativeMonitorResolution.y)));
-            return fitting.ToArray();
         }
     }
 }
