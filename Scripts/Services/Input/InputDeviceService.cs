@@ -60,7 +60,10 @@ namespace SteelHorse.Framework.Services.Input
             {
                 if (control is ButtonControl button)
                 {
-                    if (button.isPressed)
+                    // Can't read button.isPressed here - it reflects the control's value before
+                    // this event is applied, since onEvent fires ahead of the event being
+                    // committed to device state. Read the button's value out of the event itself.
+                    if (button.IsValueConsideredPressed(button.ReadValueFromEvent(eventPtr)))
                         return true;
                     continue;
                 }
