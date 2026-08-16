@@ -428,6 +428,16 @@ Both `Load` and `Save` accept an optional `fileName` parameter (default `"save.j
 
 If the file is missing or corrupt, `Load` logs a warning and falls back to a default-constructed `T`.
 
+`Current` is cached per closed generic type `T`, not per `fileName` — loading a second file into the same `T` overwrites the in-memory copy of the first. When working with multiple slots at once (see below), read `Current` immediately after each `Load` before loading the next one.
+
+```csharp
+// Delete a save slot
+LocalSaveService<SaveData>.Delete("player-1.json");
+
+// List every save file for this T (defaults to "*.json")
+string[] fileNames = LocalSaveService<SaveData>.ListFiles("player-*.json");
+```
+
 ### SaveEncryption
 
 `Scripts/Services/Save/SaveEncryption.cs`

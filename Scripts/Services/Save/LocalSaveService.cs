@@ -53,6 +53,29 @@ namespace SteelHorse.Framework.Services.Save
             }
         }
 
+        public static void Delete(string fileName)
+        {
+            string path = GetPath(fileName);
+
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+
+        public static string[] ListFiles(string searchPattern = "*.json")
+        {
+            if (!Directory.Exists(Application.persistentDataPath))
+                return new string[0];
+
+            string[] paths = Directory.GetFiles(Application.persistentDataPath, searchPattern);
+
+            for (int i = 0; i < paths.Length; i++)
+            {
+                paths[i] = Path.GetFileName(paths[i]);
+            }
+
+            return paths;
+        }
+
         private static string GetPath(string fileName) =>
             Path.Combine(Application.persistentDataPath, fileName);
     }
