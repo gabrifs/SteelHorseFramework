@@ -87,6 +87,7 @@ Steel Horse Framework/
             ├── TabsMenuPanel.cs
             ├── UIButton.cs
             ├── UIDropdown.cs
+            ├── UIInputField.cs
             ├── UIPointer.cs
             ├── UISelectableBase.cs
             ├── UISlider.cs
@@ -715,7 +716,7 @@ Pure UI layer over [`OptionsService`](#optionsservice) (see above): wires a sett
 
 `Scripts/UI/UISelectableBase.cs`
 
-`[RequireComponent(typeof(Selectable))]`. Abstract base class shared by `UIButton`, `UISlider`, `UIDropdown`, and `UIToggle`. Not used directly — implements the plumbing common to every Selectable-derived widget:
+`[RequireComponent(typeof(Selectable))]`. Abstract base class shared by `UIButton`, `UISlider`, `UIDropdown`, `UIToggle`, and `UIInputField`. Not used directly — implements the plumbing common to every Selectable-derived widget:
 
 - **Select Sfx Cue** — plays through `IAudioManager.PlaySfx` on `ISelectHandler.OnSelect`, which fires for both pointer hover-to-select and gamepad/keyboard navigation. Leave empty to skip.
 - **Mouse hover-to-select** — `IPointerEnterHandler.OnPointerEnter` moves EventSystem selection to the hovered widget (if interactable), so mouse hover drives the same highlight/select path as gamepad/keyboard navigation instead of only clicking. Skipped on mobile (`PlatformUtility.IsMobilePlatform()`) — touch fires `PointerEnter` alongside the tap itself, which would re-enable the auto-highlight look that `MenuPanel.Show()` and `SelectionGuard` deliberately clear on touch.
@@ -751,6 +752,12 @@ Hides its `GameObject` (via `SetActive`) on platforms disabled in the Inspector.
 `Scripts/UI/UIToggle.cs`
 
 `: UISelectableBase`, `[RequireComponent(typeof(Toggle))]`. Adds **Value Changed Sfx Cue**, played on `Toggle.onValueChanged` (fires on both mouse and gamepad/keyboard interaction via Toggle's native input handling). Use for binary UI options (e.g. fullscreen, vsync).
+
+### UIInputField
+
+`Scripts/UI/UIInputField.cs`
+
+`: UISelectableBase`, `[RequireComponent(typeof(TMP_InputField))]`. Adds **Value Changed Sfx Cue**, played on `TMP_InputField.onValueChanged` (fires once per character typed, deleted, or pasted).
 
 ### VersionLabel
 
