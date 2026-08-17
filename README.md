@@ -428,6 +428,22 @@ Both `Load` and `Save` accept an optional `fileName` parameter (default `"save.j
 
 If the file is missing or corrupt, `Load` logs a warning and falls back to a default-constructed `T`.
 
+For data types with no public mutable fields (built once via a parameterized constructor instead of tweaked via `Current.Field = x`), `Save` also has an overload that takes the object directly:
+
+```csharp
+LocalSaveService<SaveData>.Save(myData, "player-1.json");
+```
+
+`Current` is cached per closed generic type `T`, not per `fileName` — loading a second file into the same `T` overwrites the in-memory copy of the first. When working with multiple slots at once (see below), read `Current` immediately after each `Load` before loading the next one.
+
+```csharp
+// Delete a save slot
+LocalSaveService<SaveData>.Delete("player-1.json");
+
+// List every save file for this T (defaults to "*.json")
+string[] fileNames = LocalSaveService<SaveData>.ListFiles("player-*.json");
+```
+
 ### SaveEncryption
 
 `Scripts/Services/Save/SaveEncryption.cs`
@@ -626,6 +642,8 @@ private void OnResolutionChanged(int width, int height) { /* ... */ }
 | On Show / On Hide | `UnityEvent` callbacks for animations or audio |
 
 `Show()` sets `alpha = 1`, enables interaction and raycasts, moves EventSystem focus to the default (or overridden) selectable, and fires `OnShow`. `Hide(bool covering = false)` disables interaction/raycasts and fires `OnHide`; it also zeroes `alpha` unless the panel is both **Always Active** and being hidden because a new panel was pushed on top of it (`covering: true` — that's what `MenuNavigator.Push` passes for the panel it's covering). Popping a panel always calls `Hide()` with `covering` left `false`, so an **Always Active** panel still disappears normally once it's the one being closed, rather than staying stuck on screen. Both `Show`/`Hide` are `virtual` so subclasses (e.g. `TabsMenuPanel`) can extend them. Call `Pop()` directly from script (e.g. after a successful form submission) to request a pop without a wired button.
+
+`OnShow`/`OnHide` are also exposed as public `UnityEvent` properties (not just Inspector-configured), so a controller can subscribe in code — `_panel.OnShow.AddListener(ResetState)` — instead of every consumer needing its own method dragged into this panel's Inspector event list.
 
 Use **Always Active** for a panel meant to stay visible as a backdrop while things stack on top of it (e.g. a main menu behind a Settings overlay) — interaction is always disabled while covered, so clicks/navigation still go to whichever panel is actually on top.
 
