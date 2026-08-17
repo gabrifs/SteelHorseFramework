@@ -39,6 +39,12 @@ namespace SteelHorse.Framework.UI
 
         public bool PoppableOnCancel => _poppableOnCancel;
 
+        // Exposed so other scripts can AddListener in code (e.g. a controller resetting
+        // its panel's state on show) instead of every consumer needing its own method
+        // dragged into this panel's Inspector event list.
+        public UnityEvent OnShow => _onShow;
+        public UnityEvent OnHide => _onHide;
+
         private CanvasGroup _canvasGroup;
         private CanvasGroup Canvas => _canvasGroup != null ? _canvasGroup : (_canvasGroup = GetComponent<CanvasGroup>());
 
