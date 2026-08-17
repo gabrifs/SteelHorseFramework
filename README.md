@@ -428,6 +428,12 @@ Both `Load` and `Save` accept an optional `fileName` parameter (default `"save.j
 
 If the file is missing or corrupt, `Load` logs a warning and falls back to a default-constructed `T`.
 
+For data types with no public mutable fields (built once via a parameterized constructor instead of tweaked via `Current.Field = x`), `Save` also has an overload that takes the object directly:
+
+```csharp
+LocalSaveService<SaveData>.Save(myData, "player-1.json");
+```
+
 `Current` is cached per closed generic type `T`, not per `fileName` — loading a second file into the same `T` overwrites the in-memory copy of the first. When working with multiple slots at once (see below), read `Current` immediately after each `Load` before loading the next one.
 
 ```csharp

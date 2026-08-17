@@ -53,6 +53,15 @@ namespace SteelHorse.Framework.Services.Save
             }
         }
 
+        // For data types with no public mutable fields (e.g. constructed once via a
+        // parameterized constructor rather than tweaked via `Current.Field = x`), saving a
+        // freshly-built instance directly is simpler than reflecting it into `_current`.
+        public static void Save(T data, string fileName = "save.json")
+        {
+            _current = data;
+            Save(fileName);
+        }
+
         public static void Delete(string fileName)
         {
             string path = GetPath(fileName);
