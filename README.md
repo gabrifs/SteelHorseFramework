@@ -402,7 +402,7 @@ Immutable result wrapper — `Success`, `StatusCode`, `RawBody`, `ErrorMessage`,
 
 `Scripts/Services/Save/LocalSaveService.cs`
 
-Generic static helper that saves and loads a single data object to `Application.persistentDataPath` as an AES-encrypted JSON file.
+Generic static helper that saves and loads data objects to `Application.persistentDataPath` as AES-encrypted JSON files, with an independent in-memory cache slot per file name.
 
 ```csharp
 // Define your save data class
@@ -424,9 +424,9 @@ LocalSaveService<SaveData>.Current.HighScore = 9001;
 LocalSaveService<SaveData>.Save();
 ```
 
-Both `Load` and `Save` accept an optional `fileName` parameter (default `"save.json"`). Use different file names to maintain multiple independent save slots.
+Both `Load` and `Save` accept an optional `fileName` parameter (default `"save.json"`). `Current` is sugar for `Get("save.json")`.
 
-If the file is missing or corrupt, `Load` logs a warning and falls back to a default-constructed `T`.
+If the file is missing or corrupt, `Load`/`Get` logs a warning and falls back to a default-constructed `T`.
 
 For data types with no public mutable fields (built once via a parameterized constructor instead of tweaked via `Current.Field = x`), `Save` also has an overload that takes the object directly:
 
@@ -434,15 +434,43 @@ For data types with no public mutable fields (built once via a parameterized con
 LocalSaveService<SaveData>.Save(myData, "player-1.json");
 ```
 
-`Current` is cached per closed generic type `T`, not per `fileName` — loading a second file into the same `T` overwrites the in-memory copy of the first. When working with multiple slots at once (see below), read `Current` immediately after each `Load` before loading the next one.
+Each `fileName` gets its own cache slot — loading multiple files of the same `T` doesn't overwrite each other. Use `Get(fileName)` to work with several slots at once (lazily loading whichever ones haven't been read yet):
 
 ```csharp
-// Delete a save slot
+foreach (string fileName in LocalSaveService<SaveData>.ListFiles("player-*.json"))
+{
+    SaveData data = LocalSaveService<SaveData>.Get(fileName);
+    // ...
+}
+
+// Delete a save slot (also evicts it from the cache)
 LocalSaveService<SaveData>.Delete("player-1.json");
 
 // List every save file for this T (defaults to "*.json")
 string[] fileNames = LocalSaveService<SaveData>.ListFiles("player-*.json");
 ```
+
+#### Schema versioning
+
+Implement `IVersionedSaveData` on `T` to opt into migration on `Load`/`Get`:
+
+```csharp
+[Serializable]
+public class SaveData : IVersionedSaveData
+{
+    public const int CurrentSchemaVersion = 2;
+
+    [SerializeField] private int _schemaVersion = CurrentSchemaVersion;
+    public int SchemaVersion => _schemaVersion;
+
+    public int HighScore;
+}
+
+// Register once (e.g. before the first Load/Get) - migrates any save still at version 1.
+LocalSaveService<SaveData>.RegisterMigration(1, old => { /* return an upgraded SaveData */ return old; });
+```
+
+Migrations chain automatically: after loading, `LocalSaveService<T>` keeps applying the registered migration for the current `SchemaVersion` until none is registered for the resulting version. Note `JsonUtility` deserializes old JSON directly into `T`'s *current* shape before any migration runs, so a migration can only work with fields that still exist on `T` by name — it can't recover a field that was renamed or removed from the class between versions.
 
 ### SaveEncryption
 
