@@ -26,6 +26,8 @@ namespace SteelHorse.Framework.UI
 
         [Tooltip("Stay visible (but non-interactive) instead of hiding when a new panel is pushed on top of this one. Still hides fully when this panel itself is popped/closed.")]
         [SerializeField] private bool _stayActiveOnPush;
+        [Tooltip("This panel's own UIPointer, if it has one. Optional — panels with no gamepad/keyboard-navigable focus don't need one.")]
+        [SerializeField] private UIPointer _pointer;
         [SerializeField] private Selectable _defaultFocus;
         [SerializeField] private bool _poppableOnCancel = true;
         [SerializeField] private List<Button> _popButtons;
@@ -58,6 +60,15 @@ namespace SteelHorse.Framework.UI
         {
             _canvas = GetComponent<Canvas>();
             _graphicRaycaster = GetComponent<GraphicRaycaster>();
+
+            // Force every panel hidden on startup regardless of how it was left authored
+            // in the Inspector, instead of trusting each panel's alpha/interactable/etc.
+            // to already be correct. MenuNavigator.Start() then explicitly Shows only the
+            // root panel - guaranteed to run after every panel's Awake, since Unity runs
+            // the whole scene's Awake phase before any Start - so the root wins regardless
+            // of Awake ordering between panels. No OnHide fires here since this is just
+            // establishing the starting state, not an actual hide transition.
+            ApplyHiddenState();
 
             foreach (var btn in _popButtons)
                 btn.onClick.AddListener(() => PopRequested?.Invoke());
@@ -100,6 +111,8 @@ namespace SteelHorse.Framework.UI
                 _canvas.enabled = true;
             if (_graphicRaycaster != null)
                 _graphicRaycaster.enabled = true;
+            if (_pointer != null)
+                _pointer.Show();
 
             // On mobile there's no gamepad/keyboard navigation to seed, and leaving a
             // button auto-selected would show it highlighted despite nobody touching it.
@@ -124,8 +137,12 @@ namespace SteelHorse.Framework.UI
         // normally once it's the one being popped.
         public virtual void Hide(bool covering = false)
         {
-            bool staysVisible = covering && _stayActiveOnPush;
+            ApplyHiddenState(covering && _stayActiveOnPush);
+            _onHide?.Invoke();
+        }
 
+        private void ApplyHiddenState(bool staysVisible = false)
+        {
             if (!staysVisible)
                 Canvas.alpha = 0f;
 
@@ -136,8 +153,8 @@ namespace SteelHorse.Framework.UI
                 _canvas.enabled = staysVisible;
             if (_graphicRaycaster != null)
                 _graphicRaycaster.enabled = false;
-
-            _onHide?.Invoke();
+            if (_pointer != null)
+                _pointer.Hide();
         }
     }
 }

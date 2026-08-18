@@ -21,16 +21,19 @@ namespace SteelHorse.Framework.UI
         private readonly Stack<StackFrame> _history = new();
         private InputAction _cancelAction;
 
-        private void Awake()
-        {
-            if (_rootPanel != null)
-                Push(_rootPanel);
-        }
-
         private void Start()
         {
-            // Resolved in Start rather than Awake: EventSystem.current may not be
-            // initialised yet when multiple objects share the default execution order.
+            // Resolved (and the root panel pushed) in Start rather than Awake: every
+            // MenuPanel forces itself hidden in its own Awake regardless of how it was
+            // left authored in the Inspector (see MenuPanel.Awake), and Unity guarantees
+            // the whole scene's Awake phase finishes before any Start runs - so pushing
+            // here guarantees the root panel's Show() always wins, regardless of Awake
+            // ordering between this and the panels themselves. EventSystem.current may
+            // also not be initialised yet when multiple objects share the default Awake
+            // execution order.
+            if (_rootPanel != null)
+                Push(_rootPanel);
+
             if (EventSystem.current.TryGetComponent<InputSystemUIInputModule>(out var inputModule))
             {
                 _cancelAction = inputModule.cancel.action;
