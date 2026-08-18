@@ -15,6 +15,11 @@ namespace SteelHorse.Framework.UI
     // camera, or CanvasScaler factor) the selected element belongs to.
     // Requires DOTween.
     //
+    // Owned by a single MenuPanel via that panel's own [SerializeField], which
+    // calls Show()/Hide() directly instead of this component self-detecting
+    // visibility from a parent Canvas — multiple UIPointers can coexist in a
+    // scene, one per panel that needs one.
+    //
     // Disables itself entirely on mobile: this is a gamepad/keyboard-navigation
     // affordance and there is no EventSystem "selection" concept to follow on touch.
     [RequireComponent(typeof(Canvas))]
@@ -28,7 +33,6 @@ namespace SteelHorse.Framework.UI
         [SerializeField] private bool _hidePointerForMouseInput = true;
 
         private Canvas _pointerCanvas;
-        private Canvas _parentCanvas;
         private RectTransform _pointerParent;
         private RectTransform _currentTarget;
 
@@ -42,12 +46,16 @@ namespace SteelHorse.Framework.UI
 
             _pointerCanvas = GetComponent<Canvas>();
             _pointerParent = _pointer.parent as RectTransform;
+        }
 
-            // Lives under a panel's own Canvas now that multiple UIPointers can
-            // coexist in a scene, so skip the (parent-excluded, since RequireComponent
-            // guarantees one on this GameObject) per-frame work below entirely once
-            // MenuPanel.Hide disables that canvas.
-            _parentCanvas = transform.parent != null ? transform.parent.GetComponentInParent<Canvas>() : null;
+        // Called by the owning MenuPanel's Show()/Hide() to control visibility directly.
+        public void Show() => enabled = true;
+
+        public void Hide()
+        {
+            enabled = false;
+            if (_pointer.gameObject.activeSelf)
+                _pointer.gameObject.SetActive(false);
         }
 
         private IEnumerator Start()
@@ -75,13 +83,6 @@ namespace SteelHorse.Framework.UI
 
         private void Update()
         {
-            if (_parentCanvas != null && !_parentCanvas.enabled)
-            {
-                if (_pointer.gameObject.activeSelf)
-                    _pointer.gameObject.SetActive(false);
-                return;
-            }
-
             if (IsMouseHidingPointer())
             {
                 Cursor.visible = true;

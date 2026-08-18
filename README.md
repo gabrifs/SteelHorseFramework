@@ -634,6 +634,7 @@ private void OnResolutionChanged(int width, int height) { /* ... */ }
 | Inspector Field | Description |
 | --- | --- |
 | Default Focus | `Selectable` focused when the panel is shown with no override |
+| UI Pointer | This panel's own [`UIPointer`](#uipointer), if it has one — optional, panels with no gamepad/keyboard-navigable focus don't need one |
 | Poppable On Cancel | Whether the cancel action (gamepad B / Escape) pops this panel while it's on top of the stack |
 | Always Active | Stays visible (`alpha = 1`) but non-interactive while covered by a new push, instead of hiding — see below |
 | Pop Buttons | Buttons that fire `PopRequested` when clicked |
@@ -641,13 +642,17 @@ private void OnResolutionChanged(int width, int height) { /* ... */ }
 | Button Events | Pairs of `Button Button` → `UnityEvent Event`, for one-off button actions (e.g. `MenuActions.QuitApplication`) that don't need a push/pop |
 | On Show / On Hide | `UnityEvent` callbacks for animations or audio |
 
-`Show()` sets `alpha = 1`, enables interaction and raycasts, moves EventSystem focus to the default (or overridden) selectable, and fires `OnShow`. `Hide(bool covering = false)` disables interaction/raycasts and fires `OnHide`; it also zeroes `alpha` unless the panel is both **Always Active** and being hidden because a new panel was pushed on top of it (`covering: true` — that's what `MenuNavigator.Push` passes for the panel it's covering). Popping a panel always calls `Hide()` with `covering` left `false`, so an **Always Active** panel still disappears normally once it's the one being closed, rather than staying stuck on screen. Both `Show`/`Hide` are `virtual` so subclasses (e.g. `TabsMenuPanel`) can extend them. Call `Pop()` directly from script (e.g. after a successful form submission) to request a pop without a wired button.
+`Show()` sets `alpha = 1`, enables interaction and raycasts, shows this panel's `UI Pointer` (if assigned), moves EventSystem focus to the default (or overridden) selectable, and fires `OnShow`. `Hide(bool covering = false)` disables interaction/raycasts and hides `UI Pointer` unconditionally (even when **Always Active** keeps the rest of the panel visible — a covered, non-interactive panel has nothing for the pointer to point at), then fires `OnHide`; it also zeroes `alpha` unless the panel is both **Always Active** and being hidden because a new panel was pushed on top of it (`covering: true` — that's what `MenuNavigator.Push` passes for the panel it's covering). Popping a panel always calls `Hide()` with `covering` left `false`, so an **Always Active** panel still disappears normally once it's the one being closed, rather than staying stuck on screen. Both `Show`/`Hide` are `virtual` so subclasses (e.g. `TabsMenuPanel`) can extend them. Call `Pop()` directly from script (e.g. after a successful form submission) to request a pop without a wired button.
+
+Each `MenuPanel` that needs a navigable focus cursor should have its own dedicated `UIPointer` — as a child GameObject, wired into the **UI Pointer** field above — rather than sharing one across sibling panels under a common Canvas. A shared pointer has no single owner to show/hide it correctly when panels with independent visibility states sit under the same Canvas (see [`UIPointer`](#uipointer) below).
 
 `OnShow`/`OnHide` are also exposed as public `UnityEvent` properties (not just Inspector-configured), so a controller can subscribe in code — `_panel.OnShow.AddListener(ResetState)` — instead of every consumer needing its own method dragged into this panel's Inspector event list.
 
 Use **Always Active** for a panel meant to stay visible as a backdrop while things stack on top of it (e.g. a main menu behind a Settings overlay) — interaction is always disabled while covered, so clicks/navigation still go to whichever panel is actually on top.
 
 On mobile (`PlatformUtility.IsMobilePlatform()`), `Show()` clears the EventSystem selection instead of setting focus — there's no gamepad/keyboard navigation on touch, and leaving a button auto-selected would show it highlighted despite nobody touching it. `SelectionGuard` disables itself on mobile for the same reason, so it doesn't restore the selection `Show()` just cleared.
+
+Every panel forces itself into the same state `Hide()` produces from its own `Awake()`, regardless of what alpha/interactable/etc. was left authored in the Inspector — this doesn't fire `OnHide` (it's establishing the starting state, not an actual hide transition). Combined with [`MenuNavigator`](#menunavigator) pushing its Root Panel in `Start` (guaranteed to run after every panel's `Awake`), this makes "only the root panel is visible on startup" hold structurally instead of depending on every non-root panel being hand-authored as hidden.
 
 ### MenuActions
 
@@ -663,7 +668,7 @@ Stack-based menu controller with no knowledge of game state — it just tracks w
 
 | Inspector Field | Description |
 | --- | --- |
-| Root Panel | First `MenuPanel` pushed on `Awake`; bottom of the stack |
+| Root Panel | First `MenuPanel` pushed on `Start`; bottom of the stack |
 
 ```csharp
 // Navigate programmatically
@@ -673,6 +678,8 @@ menuNavigator.PopToRoot();
 ```
 
 `Pop()` is a no-op when only the root frame remains, so the stack can never be emptied. The cancel action is read from `InputSystemUIInputModule.cancel.action` (resolved from `EventSystem.current` in `Start`) so it works with any binding the project defines for "cancel" (gamepad B, keyboard Escape, etc.), and only pops when the top panel's `Poppable On Cancel` is true.
+
+Root Panel is pushed in `Start`, not `Awake`: every `MenuPanel` forces itself hidden in its own `Awake` regardless of how it was left authored in the Inspector (see [`MenuPanel`](#menupanel) above), and Unity guarantees the whole scene's `Awake` phase finishes before any `Start` runs — so pushing here always wins over every panel's self-hide, regardless of `Awake` ordering between `MenuNavigator` and the panels themselves.
 
 ### TabsMenuPanel
 
@@ -814,6 +821,8 @@ Only ever touches `Cursor.lockState`, never `Cursor.visible` — it's a pure loc
 `Scripts/UI/UIPointer.cs`
 
 Animates a `RectTransform` "cursor" sprite that smoothly follows the currently selected UI element using **DOTween**. Automatically hides when nothing is selected. Lives on its own `Canvas` and re-projects the selected element's rect through screen space, so it lines up correctly regardless of which canvas (render mode, camera, or `CanvasScaler` factor) the selected element belongs to. Disables its whole GameObject on mobile (`PlatformUtility.IsMobilePlatform()`) — this is a gamepad/keyboard-navigation affordance with no touch equivalent.
+
+Owned by exactly one [`MenuPanel`](#menupanel) via that panel's **UI Pointer** field — the panel calls `Show()`/`Hide()` directly instead of `UIPointer` self-detecting visibility from a parent Canvas. `Hide()` disables the component (so `Update` stops running) and deactivates the cursor graphic; `Show()` re-enables it. This means multiple `UIPointer`s can coexist in a scene, each scoped to its own panel — don't parent one under a shared Canvas that hosts more than one `MenuPanel`, since nothing would own showing/hiding it correctly for either panel individually.
 
 | Inspector Field | Description |
 | --- | --- |
