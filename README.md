@@ -140,6 +140,8 @@ Standard Game Managers  (GameManagers)
 
 Game-specific singletons (e.g. a session or save-data service) should **not** be added to this prefab's own scripts — instead attach them as sibling `MonoBehaviour`s on the `Standard Game Managers` root GameObject. They inherit `DontDestroyOnLoad` from the root and manage their own `Instance` references, without coupling the Framework to game code.
 
+**Claim `Instance`, don't self-destruct.** Each sibling singleton's `Awake` should be exactly `if (Instance == null) Instance = this;` — nothing else. Don't also call `Destroy(gameObject)` on a duplicate: `GameManagers.Awake()` already destroys the whole duplicate prefab instance at the root, taking every sibling component down with it. A sibling that destroys itself too is racing `Awake()` ordering against `GameManagers` (Unity doesn't guarantee which sibling's `Awake` runs first) — if it runs first, it can momentarily claim `Instance` to a component that's about to be destroyed out from under it.
+
 ---
 
 ## FrameRateController

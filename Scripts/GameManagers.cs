@@ -5,6 +5,14 @@
 // would couple the framework to game code and break reusability across projects.
 // Instead, attach them as sibling MonoBehaviours on the same prefab: they inherit
 // DontDestroyOnLoad from this root object and manage their own Instance references.
+//
+// Those sibling singletons should claim Instance with "if (Instance == null) Instance
+// = this;" and nothing else - do NOT also Destroy(gameObject) on a duplicate. This
+// GameManagers.Awake() below already destroys the whole duplicate prefab instance at
+// the root, which takes every sibling component down with it; a sibling doing its own
+// Destroy() call races Awake() ordering against this one (Unity doesn't guarantee which
+// sibling's Awake runs first), and could momentarily claim Instance to a component
+// that's about to be destroyed if it runs before this one does.
 using UnityEngine;
 using SteelHorse.Framework.Services;
 
