@@ -21,34 +21,37 @@ namespace SteelHorse.Framework.Dice
             return total;
         }
 
-        public static DiceCheckResult RollCheck(int faces, int bonus, int targetDC)
+        public static DiceCheckResult RollCheck(int faces, int bonus, int targetDC, bool allowCriticals = true)
         {
             int roll = DiceRoll(faces);
-            return BuildResult(roll, faces, bonus, targetDC);
+            return BuildResult(roll, faces, bonus, targetDC, allowCriticals);
         }
 
         // Rolls twice and keeps the higher result for the check.
-        public static DiceCheckResult AdvantageRollCheck(int faces, int bonus, int targetDC)
+        public static DiceCheckResult AdvantageRollCheck(int faces, int bonus, int targetDC, bool allowCriticals = true)
         {
             int roll = Mathf.Max(DiceRoll(faces), DiceRoll(faces));
-            return BuildResult(roll, faces, bonus, targetDC);
+            return BuildResult(roll, faces, bonus, targetDC, allowCriticals);
         }
 
         // Rolls twice and keeps the lower result for the check.
-        public static DiceCheckResult DisadvantageRollCheck(int faces, int bonus, int targetDC)
+        public static DiceCheckResult DisadvantageRollCheck(int faces, int bonus, int targetDC, bool allowCriticals = true)
         {
             int roll = Mathf.Min(DiceRoll(faces), DiceRoll(faces));
-            return BuildResult(roll, faces, bonus, targetDC);
+            return BuildResult(roll, faces, bonus, targetDC, allowCriticals);
         }
 
-        private static DiceCheckResult BuildResult(int roll, int faces, int bonus, int targetDC)
+        // With allowCriticals (default true), rolling the max face is an automatic success and
+        // rolling a 1 is an automatic failure, regardless of bonus/targetDC - pass false to fall
+        // back to a plain Total >= targetDC comparison for checks that shouldn't have crits.
+        private static DiceCheckResult BuildResult(int roll, int faces, int bonus, int targetDC, bool allowCriticals)
         {
             int total = roll + bonus;
-            bool success = total >= targetDC;
-            bool isCriticalSuccess = roll == faces;
-            bool isCriticalFailure = roll == 1;
+            bool isCritical = allowCriticals && (roll == faces || roll == 1);
 
-            return new DiceCheckResult(roll, bonus, total, targetDC, success, isCriticalSuccess, isCriticalFailure);
+            bool success = isCritical ? roll == faces : total >= targetDC;
+
+            return new DiceCheckResult(roll, bonus, total, targetDC, success, isCritical);
         }
     }
 }

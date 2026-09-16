@@ -9,26 +9,32 @@ namespace SteelHorse.Framework.Dice
         public int Total { get { return _total; } }
         public int TargetDC { get { return _targetDC; } }
         public bool Success { get { return _success; } }
-        public bool IsCriticalSuccess { get { return _isCriticalSuccess; } }
-        public bool IsCriticalFailure { get { return _isCriticalFailure; } }
+        public bool IsCritical { get { return _isCritical; } }
 
         private readonly int _roll;
         private readonly int _bonus;
         private readonly int _total;
         private readonly int _targetDC;
         private readonly bool _success;
-        private readonly bool _isCriticalSuccess;
-        private readonly bool _isCriticalFailure;
+        private readonly bool _isCritical;
 
-        public DiceCheckResult(int roll, int bonus, int total, int targetDC, bool success, bool isCriticalSuccess, bool isCriticalFailure)
+        public DiceCheckResult(int roll, int bonus, int total, int targetDC, bool success, bool isCritical)
         {
             _roll = roll;
             _bonus = bonus;
             _total = total;
             _targetDC = targetDC;
             _success = success;
-            _isCriticalSuccess = isCriticalSuccess;
-            _isCriticalFailure = isCriticalFailure;
+            _isCritical = isCritical;
+        }
+
+        // Human-readable breakdown of the check's math, e.g. "10 + 5 = 15 vs. 12" (or
+        // "20! + 5 = 25 vs. 12" on a critical) - meant for surfacing to the player so a
+        // pass/fail doesn't feel like a black box.
+        public override string ToString()
+        {
+            string rollText = _isCritical ? $"{_roll}!" : _roll.ToString();
+            return $"{rollText} + {_bonus} = {_total} vs. {_targetDC}";
         }
     }
 }
