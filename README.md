@@ -555,10 +555,12 @@ public static class DiceRoller
 {
     public static int Roll(int faces);
     public static DiceCheckResult RollCheck(int faces, int bonus, int targetDC);
+    public static DiceCheckResult AdvantageRollCheck(int faces, int bonus, int targetDC);
+    public static DiceCheckResult DisadvantageRollCheck(int faces, int bonus, int targetDC);
 }
 ```
 
-`Roll(faces)` returns a value in `[1, faces]` (e.g. `Roll(20)` for a d20). `RollCheck(faces, bonus, targetDC)` rolls once, adds `bonus` to get `Total`, and reports `Success` as `Total >= targetDC` via the returned `DiceCheckResult` — the caller decides what `bonus`/`targetDC` mean (an attribute score, a difficulty class, etc.).
+`Roll(faces)` returns a value in `[1, faces]` (e.g. `Roll(20)` for a d20). `RollCheck(faces, bonus, targetDC)` rolls once, adds `bonus` to get `Total`, and reports `Success` as `Total >= targetDC` via the returned `DiceCheckResult` — the caller decides what `bonus`/`targetDC` mean (an attribute score, a difficulty class, etc.). `AdvantageRollCheck`/`DisadvantageRollCheck` roll twice and keep the higher/lower result respectively before resolving the same way. A roll equal to `faces` (the maximum) is reported as `IsCriticalSuccess`; a roll of `1` is reported as `IsCriticalFailure` — these are informational flags only, they don't themselves override `Success`.
 
 ```csharp
 DiceCheckResult result = DiceRoller.RollCheck(faces: 20, bonus: 5, targetDC: 15);
@@ -578,10 +580,12 @@ public readonly struct DiceCheckResult
     public int Total { get; }
     public int TargetDC { get; }
     public bool Success { get; }
+    public bool IsCriticalSuccess { get; }
+    public bool IsCriticalFailure { get; }
 }
 ```
 
-Read-only outcome of a `RollCheck` call, so callers never need to redo the `Roll + Bonus` vs. `TargetDC` comparison themselves.
+Read-only outcome of a `RollCheck`/`AdvantageRollCheck`/`DisadvantageRollCheck` call, so callers never need to redo the `Roll + Bonus` vs. `TargetDC` comparison (or the crit check) themselves.
 
 ---
 
