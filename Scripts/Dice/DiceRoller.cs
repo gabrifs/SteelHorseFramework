@@ -11,6 +11,16 @@ namespace SteelHorse.Framework.Dice
             return Random.Range(1, faces + 1);
         }
 
+        public static int MultiDiceRoll(int faces, int amount)
+        {
+            int total = 0;
+
+            for (int i = 0; i < amount; i++)
+                total += Roll(faces);
+
+            return total;
+        }
+
         public static DiceCheckResult RollCheck(int faces, int bonus, int targetDC)
         {
             int roll = Roll(faces);

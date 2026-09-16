@@ -554,13 +554,14 @@ A game-agnostic dice roller: rolls a single die of any face count and can option
 public static class DiceRoller
 {
     public static int Roll(int faces);
+    public static int MultiDiceRoll(int faces, int amount);
     public static DiceCheckResult RollCheck(int faces, int bonus, int targetDC);
     public static DiceCheckResult AdvantageRollCheck(int faces, int bonus, int targetDC);
     public static DiceCheckResult DisadvantageRollCheck(int faces, int bonus, int targetDC);
 }
 ```
 
-`Roll(faces)` returns a value in `[1, faces]` (e.g. `Roll(20)` for a d20). `RollCheck(faces, bonus, targetDC)` rolls once, adds `bonus` to get `Total`, and reports `Success` as `Total >= targetDC` via the returned `DiceCheckResult` — the caller decides what `bonus`/`targetDC` mean (an attribute score, a difficulty class, etc.). `AdvantageRollCheck`/`DisadvantageRollCheck` roll twice and keep the higher/lower result respectively before resolving the same way. A roll equal to `faces` (the maximum) is reported as `IsCriticalSuccess`; a roll of `1` is reported as `IsCriticalFailure` — these are informational flags only, they don't themselves override `Success`.
+`Roll(faces)` returns a value in `[1, faces]` (e.g. `Roll(20)` for a d20). `MultiDiceRoll(faces, amount)` rolls `amount` dice of that face count and returns their sum (e.g. `MultiDiceRoll(6, 3)` for `3d6`). `RollCheck(faces, bonus, targetDC)` rolls once, adds `bonus` to get `Total`, and reports `Success` as `Total >= targetDC` via the returned `DiceCheckResult` — the caller decides what `bonus`/`targetDC` mean (an attribute score, a difficulty class, etc.). `AdvantageRollCheck`/`DisadvantageRollCheck` roll twice and keep the higher/lower result respectively before resolving the same way. A roll equal to `faces` (the maximum) is reported as `IsCriticalSuccess`; a roll of `1` is reported as `IsCriticalFailure` — these are informational flags only, they don't themselves override `Success`.
 
 ```csharp
 DiceCheckResult result = DiceRoller.RollCheck(faces: 20, bonus: 5, targetDC: 15);
