@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace SteelHorse.Framework.Dice
@@ -6,9 +7,20 @@ namespace SteelHorse.Framework.Dice
     // optionally, resolves it as a check against a target DC with a flat bonus.
     public static class DiceRoller
     {
+        // Fired for every single die physically rolled (including each die within
+        // Advantage/Disadvantage/MultiDiceRoll) - for SFX/animation reacting to a roll.
+        public static event Action<int, int> DiceRolled;
+
+        // Fired whenever a check resolves into a result - for UI/SFX reacting to a
+        // pass/fail or a critical.
+        public static event Action<DiceCheckResult> CheckResolved;
+
         public static int DiceRoll(int faces)
         {
-            return Random.Range(1, faces + 1);
+            int roll = UnityEngine.Random.Range(1, faces + 1);
+            DiceRolled?.Invoke(faces, roll);
+
+            return roll;
         }
 
         public static int MultiDiceRoll(int faces, int amount)
@@ -51,7 +63,10 @@ namespace SteelHorse.Framework.Dice
 
             bool success = isCritical ? roll == faces : total >= targetDC;
 
-            return new DiceCheckResult(roll, bonus, total, targetDC, success, isCritical);
+            DiceCheckResult result = new DiceCheckResult(roll, bonus, total, targetDC, success, isCritical);
+            CheckResolved?.Invoke(result);
+
+            return result;
         }
     }
 }

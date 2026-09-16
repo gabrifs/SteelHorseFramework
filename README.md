@@ -553,6 +553,9 @@ A game-agnostic dice roller: rolls a single die of any face count and can option
 ```csharp
 public static class DiceRoller
 {
+    public static event Action<int, int> DiceRolled;
+    public static event Action<DiceCheckResult> CheckResolved;
+
     public static int DiceRoll(int faces);
     public static int MultiDiceRoll(int faces, int amount);
     public static DiceCheckResult RollCheck(int faces, int bonus, int targetDC, bool allowCriticals = true);
@@ -564,6 +567,13 @@ public static class DiceRoller
 `DiceRoll(faces)` returns a value in `[1, faces]` (e.g. `DiceRoll(20)` for a d20). `MultiDiceRoll(faces, amount)` rolls `amount` dice of that face count and returns their sum (e.g. `MultiDiceRoll(6, 3)` for `3d6`). `RollCheck(faces, bonus, targetDC)` rolls once, adds `bonus` to get `Total`, and reports `Success` as `Total >= targetDC` via the returned `DiceCheckResult` — the caller decides what `bonus`/`targetDC` mean (an attribute score, a difficulty class, etc.). `AdvantageRollCheck`/`DisadvantageRollCheck` roll twice and keep the higher/lower result respectively before resolving the same way.
 
 With `allowCriticals` (default `true`), a roll equal to `faces` (the maximum) is an automatic success and a roll of `1` is an automatic failure, regardless of `bonus`/`targetDC` — both reported as `IsCritical` on the result. Pass `allowCriticals: false` for checks that shouldn't have criticals, which falls back to a plain `Total >= targetDC` comparison and leaves `IsCritical` `false`.
+
+`DiceRolled(faces, roll)` fires for every individual die physically rolled — including each of the two dice inside `AdvantageRollCheck`/`DisadvantageRollCheck` and every die in a `MultiDiceRoll` — so a subscriber can play a roll SFX or animate a die per call, regardless of which method triggered it. `CheckResolved(result)` fires once a `RollCheck`/`AdvantageRollCheck`/`DisadvantageRollCheck` call has a final `DiceCheckResult`, for UI/SFX reacting to the outcome (e.g. a pass/fail sting, or a distinct cue on `IsCritical`). Both are static events (same facade convention BTEF's `DungeonLog` uses) — subscribers don't need a reference to whatever's calling `DiceRoller`.
+
+```csharp
+DiceRoller.DiceRolled += (faces, roll) => PlayDieClatterSfx();
+DiceRoller.CheckResolved += result => uiPanel.ShowCheckResult(result);
+```
 
 ```csharp
 DiceCheckResult result = DiceRoller.RollCheck(faces: 20, bonus: 5, targetDC: 15);
