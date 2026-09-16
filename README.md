@@ -553,15 +553,27 @@ A game-agnostic dice roller: rolls a single die of any face count and can option
 ```csharp
 public static class DiceRoller
 {
+    public static event Action<int, int> DiceRolled;
+    public static event Action<DiceCheckResult> CheckResolved;
+
     public static int DiceRoll(int faces);
     public static int MultiDiceRoll(int faces, int amount);
-    public static DiceCheckResult RollCheck(int faces, int bonus, int targetDC);
-    public static DiceCheckResult AdvantageRollCheck(int faces, int bonus, int targetDC);
-    public static DiceCheckResult DisadvantageRollCheck(int faces, int bonus, int targetDC);
+    public static DiceCheckResult RollCheck(int faces, int bonus, int targetDC, bool allowCriticals = true);
+    public static DiceCheckResult AdvantageRollCheck(int faces, int bonus, int targetDC, bool allowCriticals = true);
+    public static DiceCheckResult DisadvantageRollCheck(int faces, int bonus, int targetDC, bool allowCriticals = true);
 }
 ```
 
-`DiceRoll(faces)` returns a value in `[1, faces]` (e.g. `DiceRoll(20)` for a d20). `MultiDiceRoll(faces, amount)` rolls `amount` dice of that face count and returns their sum (e.g. `MultiDiceRoll(6, 3)` for `3d6`). `RollCheck(faces, bonus, targetDC)` rolls once, adds `bonus` to get `Total`, and reports `Success` as `Total >= targetDC` via the returned `DiceCheckResult` — the caller decides what `bonus`/`targetDC` mean (an attribute score, a difficulty class, etc.). `AdvantageRollCheck`/`DisadvantageRollCheck` roll twice and keep the higher/lower result respectively before resolving the same way. A roll equal to `faces` (the maximum) is reported as `IsCriticalSuccess`; a roll of `1` is reported as `IsCriticalFailure` — these are informational flags only, they don't themselves override `Success`.
+`DiceRoll(faces)` returns a value in `[1, faces]` (e.g. `DiceRoll(20)` for a d20). `MultiDiceRoll(faces, amount)` rolls `amount` dice of that face count and returns their sum (e.g. `MultiDiceRoll(6, 3)` for `3d6`). `RollCheck(faces, bonus, targetDC)` rolls once, adds `bonus` to get `Total`, and reports `Success` as `Total >= targetDC` via the returned `DiceCheckResult` — the caller decides what `bonus`/`targetDC` mean (an attribute score, a difficulty class, etc.). `AdvantageRollCheck`/`DisadvantageRollCheck` roll twice and keep the higher/lower result respectively before resolving the same way.
+
+With `allowCriticals` (default `true`), a roll equal to `faces` (the maximum) is an automatic success and a roll of `1` is an automatic failure, regardless of `bonus`/`targetDC` — both reported as `IsCritical` on the result. Pass `allowCriticals: false` for checks that shouldn't have criticals, which falls back to a plain `Total >= targetDC` comparison and leaves `IsCritical` `false`.
+
+`DiceRolled(faces, roll)` fires for every individual die physically rolled — including each of the two dice inside `AdvantageRollCheck`/`DisadvantageRollCheck` and every die in a `MultiDiceRoll` — so a subscriber can play a roll SFX or animate a die per call, regardless of which method triggered it. `CheckResolved(result)` fires once a `RollCheck`/`AdvantageRollCheck`/`DisadvantageRollCheck` call has a final `DiceCheckResult`, for UI/SFX reacting to the outcome (e.g. a pass/fail sting, or a distinct cue on `IsCritical`). Both are static events (same facade convention BTEF's `DungeonLog` uses) — subscribers don't need a reference to whatever's calling `DiceRoller`.
+
+```csharp
+DiceRoller.DiceRolled += (faces, roll) => PlayDieClatterSfx();
+DiceRoller.CheckResolved += result => uiPanel.ShowCheckResult(result);
+```
 
 ```csharp
 DiceCheckResult result = DiceRoller.RollCheck(faces: 20, bonus: 5, targetDC: 15);
@@ -581,12 +593,11 @@ public readonly struct DiceCheckResult
     public int Total { get; }
     public int TargetDC { get; }
     public bool Success { get; }
-    public bool IsCriticalSuccess { get; }
-    public bool IsCriticalFailure { get; }
+    public bool IsCritical { get; }
 }
 ```
 
-Read-only outcome of a `RollCheck`/`AdvantageRollCheck`/`DisadvantageRollCheck` call, so callers never need to redo the `Roll + Bonus` vs. `TargetDC` comparison (or the crit check) themselves.
+Read-only outcome of a `RollCheck`/`AdvantageRollCheck`/`DisadvantageRollCheck` call, so callers never need to redo the `Roll + Bonus` vs. `TargetDC` comparison themselves. `IsCritical` means the roll hit the die's max face or a `1`; combined with `Success` (which criticals force to `true`/`false` respectively — see `DiceRoller.RollCheck`'s `allowCriticals`) that's enough to tell a critical success (`IsCritical && Success`) from a critical failure (`IsCritical && !Success`) without a separate flag for each. `ToString()` is overridden to format the math as `"{Roll} + {Bonus} = {Total} vs. {TargetDC}"` (e.g. `"10 + 5 = 15 vs. 12"`, or `"20! + 5 = 25 vs. 12"` on a critical), handy for surfacing the roll to the player instead of leaving a pass/fail as a black box.
 
 ---
 
