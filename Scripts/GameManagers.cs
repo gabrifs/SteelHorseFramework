@@ -18,6 +18,12 @@ using SteelHorse.Framework.Services;
 
 namespace SteelHorse.Framework
 {
+    // Nothing else in a scene controls execution order, and Unity only guarantees
+    // "every Awake before any Start" - not "every Awake before any OnEnable" - so a
+    // sibling scene object whose OnEnable reads GameManagers.Instance can otherwise run
+    // before this Awake() has set it. A very early DefaultExecutionOrder makes this
+    // Awake() (and OnEnable, if ever added) deterministically first instead.
+    [DefaultExecutionOrder(-1000)]
     public class GameManagers : MonoBehaviour
     {
         public static GameManagers Instance { get; private set; }
