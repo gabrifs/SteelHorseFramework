@@ -125,6 +125,8 @@ GameManagers.Instance.Services.InputDeviceService.CurrentMode; // InputDeviceMod
 GameManagers.Instance.Services.OptionsService.SetVolume("Master", 0.8f);
 ```
 
+**Execution order:** `GameManagers` carries `[DefaultExecutionOrder(-1000)]`, so its `Awake` (which sets `Instance` and calls `Services.Setup()`) runs before other scene objects' `Awake`/`OnEnable` in practice. This is not an absolute guarantee for every possible setup, though — Unity only hard-guarantees "every `Awake` before any `Start`", not "before any `OnEnable`". Code that reads `GameManagers.Instance` from `Start()` is always safe; code that reads it from `OnEnable()` on an object that could conceivably run earlier in the load should still guard against `Instance` being momentarily `null` (see the `OptionsService` "Resolution timing" example below for the pattern).
+
 The prefab hierarchy is:
 
 ```text
@@ -698,20 +700,37 @@ GameManagers.Instance.Services.OptionsService.ResolutionChanged += (width, heigh
 
 **Resolution behavior:** the dropdown's options come from the assigned `ResolutionOptions` asset, filtered down to entries that actually fit the player's monitor (any curated preset wider or taller than the monitor's native resolution is dropped — e.g. a 2560x1440 preset is excluded on a 1920x1080 display), plus the monitor's native resolution appended automatically if it isn't already one of the remaining entries — so the player can always run at their native resolution, and always has at least that one option even if every curated preset gets filtered out. Both the filter and that fallback entry are read from `Display.main.systemWidth`/`systemHeight` — the OS-reported native resolution, not `Screen.currentResolution`, which reflects the game's own current display mode instead and would drift from the real monitor ceiling once the game applies a resolution in exclusive fullscreen. On first run (nothing saved to `PlayerPrefs` yet), that monitor resolution is adopted as the default and immediately persisted, rather than falling back to whatever the first curated entry happens to be.
 
-**`ResolutionChanged`** only fires from `SetResolution` (a runtime change) — not during `Setup`'s boot-time apply, since that runs from `GameManagers.Awake`, before any other object's `OnEnable` has had a chance to subscribe. Read `CurrentResolution` directly for the initial value instead:
+**`ResolutionChanged`** only fires from `SetResolution` (a runtime change) — not during `Setup`'s boot-time apply, since that runs from `GameManagers.Awake`. Read `CurrentResolution` directly for the initial value instead of relying on the event firing during startup.
+
+**Resolution timing / `GameManagers.Instance` in `OnEnable`:** `GameManagers.Awake()` is not guaranteed to run before another scene object's `OnEnable()` (see "Execution order" under GameManagers above) — a consumer whose `OnEnable` reads `GameManagers.Instance.Services...` directly can hit a boot-time `NullReferenceException` if it happens to run first. Prefer waiting for `Instance` to exist rather than assuming it already does:
 
 ```csharp
 private void OnEnable()
 {
+    StartCoroutine(Setup());
+}
+
+private void OnDisable()
+{
+    // Setup()'s WaitUntil may not have reached the += yet (e.g. disabled the
+    // same frame it was enabled) - GameManagers.Instance can still be null here.
+    if (GameManagers.Instance != null)
+        GameManagers.Instance.Services.OptionsService.ResolutionChanged -= OnResolutionChanged;
+}
+
+private void OnResolutionChanged(int width, int height) { /* ... */ }
+
+private IEnumerator Setup()
+{
+    yield return new WaitUntil(() => GameManagers.Instance != null);
+
     var service = GameManagers.Instance.Services.OptionsService;
     service.ResolutionChanged += OnResolutionChanged;
     OnResolutionChanged(service.CurrentResolution.x, service.CurrentResolution.y); // initial sync
 }
-
-private void OnDisable() => GameManagers.Instance.Services.OptionsService.ResolutionChanged -= OnResolutionChanged;
-
-private void OnResolutionChanged(int width, int height) { /* ... */ }
 ```
+
+Code that reads `GameManagers.Instance` from `Start()` instead of `OnEnable()` doesn't need this — Awake-before-Start is a real Unity guarantee.
 
 ---
 
