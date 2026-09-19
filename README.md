@@ -30,8 +30,14 @@ Steel Horse Framework/
     │   ├── DatabaseEntry.cs
     │   └── GameDatabase.cs
     ├── Dice/
-    │   ├── DiceRoller.cs
-    │   └── DiceCheckResult.cs
+    │   ├── Dice.cs
+    │   ├── DiceCheckResult.cs
+    │   ├── DiceCheckKind.cs
+    │   └── Dice Checkers/
+    │       ├── IDiceChecker.cs
+    │       ├── TargetDiceChecker.cs
+    │       ├── ChanceDiceChecker.cs
+    │       └── DiceCheckerService.cs
     ├── Tags/
     │   ├── TagDatabase.cs
     │   ├── TagDefinition.cs
@@ -546,39 +552,95 @@ if (GameManagers.Instance.Services.DatabaseService.TryGet(out TagDatabase tags) 
 
 ## Dice System
 
-A game-agnostic dice roller: rolls a single die of any face count and can optionally resolve the roll as a pass/fail check against a caller-supplied bonus and target DC, without knowing anything about the calling game's attributes or difficulty systems.
+A game-agnostic dice system: `Dice` is a reusable definition of a roll (a face count plus how many of that die to roll); `IDiceChecker` resolves a `Dice` roll into a pass/fail `DiceCheckResult` against a caller-supplied bonus and value, without knowing anything about the calling game's attributes or difficulty systems; `TargetDiceChecker`/`ChanceDiceChecker` are its two independent implementations, reached through `DiceCheckerService`.
 
-### DiceRoller
+### Dice
 
-`Scripts/Dice/DiceRoller.cs`
+`Scripts/Dice/Dice.cs`
 
 ```csharp
-public static class DiceRoller
+[Serializable]
+public class Dice
 {
     public static event Action<int, int> DiceRolled;
-    public static event Action<DiceCheckResult> CheckResolved;
 
-    public static int DiceRoll(int faces);
-    public static int MultiDiceRoll(int faces, int amount);
-    public static DiceCheckResult RollCheck(int faces, int bonus, int targetDC, bool allowCriticals = true);
-    public static DiceCheckResult AdvantageRollCheck(int faces, int bonus, int targetDC, bool allowCriticals = true);
-    public static DiceCheckResult DisadvantageRollCheck(int faces, int bonus, int targetDC, bool allowCriticals = true);
+    public int Faces { get; }
+    public int Amount { get; }
+
+    public Dice(int faces, int amount = 1);
+
+    public int Roll();
 }
 ```
 
-`DiceRoll(faces)` returns a value in `[1, faces]` (e.g. `DiceRoll(20)` for a d20). `MultiDiceRoll(faces, amount)` rolls `amount` dice of that face count and returns their sum (e.g. `MultiDiceRoll(6, 3)` for `3d6`). `RollCheck(faces, bonus, targetDC)` rolls once, adds `bonus` to get `Total`, and reports `Success` as `Total >= targetDC` via the returned `DiceCheckResult` — the caller decides what `bonus`/`targetDC` mean (an attribute score, a difficulty class, etc.). `AdvantageRollCheck`/`DisadvantageRollCheck` roll twice and keep the higher/lower result respectively before resolving the same way.
+`Dice` bundles a face count with how many of that die to roll — build one once for a specific use (a weapon's damage die, a stat check's die, etc.) and reuse it instead of passing raw faces/amount around every time it needs to be rolled. It's `[Serializable]`, so it can also be exposed as an Inspector field. `amount` is clamped to a minimum of `1` in the constructor, so a `Dice` can't be built with zero or negative dice.
 
-With `allowCriticals` (default `true`), a roll equal to `faces` (the maximum) is an automatic success and a roll of `1` is an automatic failure, regardless of `bonus`/`targetDC` — both reported as `IsCritical` on the result. Pass `allowCriticals: false` for checks that shouldn't have criticals, which falls back to a plain `Total >= targetDC` comparison and leaves `IsCritical` `false`.
-
-`DiceRolled(faces, roll)` fires for every individual die physically rolled — including each of the two dice inside `AdvantageRollCheck`/`DisadvantageRollCheck` and every die in a `MultiDiceRoll` — so a subscriber can play a roll SFX or animate a die per call, regardless of which method triggered it. `CheckResolved(result)` fires once a `RollCheck`/`AdvantageRollCheck`/`DisadvantageRollCheck` call has a final `DiceCheckResult`, for UI/SFX reacting to the outcome (e.g. a pass/fail sting, or a distinct cue on `IsCritical`). Both are static events (same facade convention BTEF's `DungeonLog` uses) — subscribers don't need a reference to whatever's calling `DiceRoller`.
+`Roll()` rolls `Amount` dice of `Faces` faces and returns their summed total — `new Dice(20).Roll()` returns a value in `[1, 20]` (a d20), `new Dice(6, 3).Roll()` sums three d6 (`3d6`). `DiceRolled(faces, roll)` fires for every individual die physically rolled, regardless of which `Dice` instance rolled it or whether it was rolled directly or as part of an `IDiceChecker` check — so a subscriber can play a roll SFX or animate a die per physical roll. It's a static event (same facade convention BTEF's `DungeonLog` uses) — subscribers don't need a reference to whatever `Dice` is rolling.
 
 ```csharp
-DiceRoller.DiceRolled += (faces, roll) => PlayDieClatterSfx();
-DiceRoller.CheckResolved += result => uiPanel.ShowCheckResult(result);
+Dice.DiceRolled += (faces, roll) => PlayDieClatterSfx();
 ```
 
 ```csharp
-DiceCheckResult result = DiceRoller.RollCheck(faces: 20, bonus: 5, targetDC: 15);
+private static readonly Dice _d20 = new Dice(20);
+int total = _d20.Roll();
+```
+
+### IDiceChecker
+
+`Scripts/Dice/Dice Checkers/IDiceChecker.cs`
+
+```csharp
+public interface IDiceChecker
+{
+    event Action<DiceCheckResult> CheckResolved;
+
+    DiceCheckResult NormalRollCheck(Dice dice, int bonus, int value, bool allowCriticals);
+    DiceCheckResult AdvantageRollCheck(Dice dice, int bonus, int value, bool allowCriticals);
+    DiceCheckResult DisadvantageRollCheck(Dice dice, int bonus, int value, bool allowCriticals);
+    DiceCheckResult BuildResult(int roll, Dice dice, int bonus, int value, bool allowCriticals);
+}
+```
+
+`NormalRollCheck(dice, bonus, value, allowCriticals)` rolls `dice`, adds `bonus` to get `Total`, and reports `Success` via the returned `DiceCheckResult` — the caller decides what `bonus`/`value` mean (an attribute score vs. a difficulty class, or a flat percentage chance), and what `dice` means (a single d20 for a flat check, `2d6` for a check that sums multiple dice, etc.). `AdvantageRollCheck`/`DisadvantageRollCheck` roll `dice` twice and keep whichever result favors success/failure respectively before resolving the same way — which extreme that is depends on the implementation (see below). `BuildResult` resolves an already-known roll into a `DiceCheckResult` directly, for a caller that already has its own roll and doesn't need `NormalRollCheck`/etc. to roll dice for it.
+
+There's no default for `allowCriticals` on the interface — `TargetDiceChecker` and `ChanceDiceChecker` disagree on what it should default to, and a default only resolves against the interface type anyway (not whichever concrete class is behind it), so every call passes it explicitly.
+
+`CheckResolved(result)` fires once a call on that same `IDiceChecker` instance resolves into a `DiceCheckResult`, for UI/SFX reacting to the outcome (e.g. a pass/fail sting, or a distinct cue on `IsCritical`). Unlike `Dice.DiceRolled`, this is an instance event, one per `IDiceChecker` — a subscriber that cares about every kind of check subscribes to both `DiceCheckerService.Target.CheckResolved` and `DiceCheckerService.Chance.CheckResolved`.
+
+### TargetDiceChecker / ChanceDiceChecker
+
+`Scripts/Dice/Dice Checkers/TargetDiceChecker.cs`, `Scripts/Dice/Dice Checkers/ChanceDiceChecker.cs`
+
+Two independent `IDiceChecker` implementations (no shared base class):
+
+- **`TargetDiceChecker`** — success needs the roll (plus bonus) to be equal to or *over* `value` (`Total >= value`). `AdvantageRollCheck` keeps the *higher* of two rolls. With `allowCriticals: true`, rolling the maximum possible total for `dice` (every die maxed, i.e. `dice.Faces * dice.Amount`) is an automatic success, and rolling the minimum possible total (every die a `1`, i.e. `dice.Amount`) is an automatic failure, regardless of `bonus`/`value`.
+- **`ChanceDiceChecker`** — the inverse: success needs the roll to be equal to or *under* `value` (`roll <= value + bonus`), for a flat percentage-style chance (e.g. a 25% chance rolled as `NormalRollCheck(new Dice(100), bonus: 0, value: 25, allowCriticals: false)`). Unlike `TargetDiceChecker`, `bonus` raises the *chance threshold* rather than the roll — since a lower roll is what succeeds here, adding a positive bonus to the roll itself would make success *less* likely, working against the caller instead of for them. Since a lower roll is what favors success, `AdvantageRollCheck` keeps the *lower* of two rolls, and the critical extremes flip too: the minimum possible total is an automatic success, the maximum is an automatic failure.
+
+Both fall back to a plain `Total` comparison (and leave `IsCritical` `false`) when `allowCriticals: false`.
+
+### DiceCheckerService
+
+`Scripts/Dice/Dice Checkers/DiceCheckerService.cs`
+
+```csharp
+public static class DiceCheckerService
+{
+    public static IDiceChecker Target { get; }
+    public static IDiceChecker Chance { get; }
+}
+```
+
+The access point for both checkers — `Target`/`Chance` are lazily constructed on first use. Deliberately **not** registered in [`ServiceLocator`](#servicelocator) — dice checking is optional/situational rather than a true cross-project framework service, so it's a standalone static instead, same idea as `BeneathTheEternalFlame.Dungeon.DungeonLog` (just lazy instead of eager).
+
+```csharp
+DiceCheckerService.Target.CheckResolved += result => uiPanel.ShowCheckResult(result);
+```
+
+```csharp
+private static readonly Dice _d20 = new Dice(20);
+
+DiceCheckResult result = DiceCheckerService.Target.NormalRollCheck(_d20, bonus: 5, value: 15, allowCriticals: true);
 if (result.Success)
     Debug.Log($"Rolled {result.Roll} + {result.Bonus} = {result.Total}, beat DC {result.TargetDC}.");
 ```
@@ -596,10 +658,13 @@ public readonly struct DiceCheckResult
     public int TargetDC { get; }
     public bool Success { get; }
     public bool IsCritical { get; }
+    public DiceCheckKind Kind { get; }
 }
 ```
 
-Read-only outcome of a `RollCheck`/`AdvantageRollCheck`/`DisadvantageRollCheck` call, so callers never need to redo the `Roll + Bonus` vs. `TargetDC` comparison themselves. `IsCritical` means the roll hit the die's max face or a `1`; combined with `Success` (which criticals force to `true`/`false` respectively — see `DiceRoller.RollCheck`'s `allowCriticals`) that's enough to tell a critical success (`IsCritical && Success`) from a critical failure (`IsCritical && !Success`) without a separate flag for each. `ToString()` is overridden to format the math as `"{Roll} + {Bonus} = {Total} vs. {TargetDC}"` (e.g. `"10 + 5 = 15 vs. 12"`, or `"20! + 5 = 25 vs. 12"` on a critical), handy for surfacing the roll to the player instead of leaving a pass/fail as a black box.
+Read-only outcome of a `NormalRollCheck`/`AdvantageRollCheck`/`DisadvantageRollCheck`/`BuildResult` call, so callers never need to redo the DC/chance comparison themselves. `IsCritical` means the roll hit the dice's max or min possible total; combined with `Success` (which criticals force to `true`/`false` respectively — see `IDiceChecker`'s `allowCriticals`) that's enough to tell a critical success (`IsCritical && Success`) from a critical failure (`IsCritical && !Success`) without a separate flag for each. `Kind` (`DiceCheckKind.Target`/`.Chance`) records which `IDiceChecker` produced the result, since the two apply `bonus` differently and `ToString()` needs to know which breakdown to print.
+
+`ToString()` formats the math differently per `Kind`, since `Total` means different things for each (see `TargetDiceChecker`/`ChanceDiceChecker` above): for `Target`, `"{Roll} + {Bonus} = {Total} vs. {TargetDC}"` (e.g. `"10 + 5 = 15 vs. 12"`, or `"20! + 5 = 25 vs. 12"` on a critical); for `Chance`, `"{Roll} vs. {TargetDC - Bonus} + {Bonus} = {TargetDC}"` (e.g. `"10 vs. 25 + 5 = 30"`), reflecting that `bonus` raised the threshold rather than the roll. Either way it's handy for surfacing the roll to the player instead of leaving a pass/fail as a black box.
 
 ---
 
